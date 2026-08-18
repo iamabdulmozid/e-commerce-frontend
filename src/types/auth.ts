@@ -22,6 +22,8 @@ export interface User {
   type: "customer" | "admin";
   status: "active" | "inactive" | "banned";
   email_verified: boolean;
+  marketing_consent?: boolean;
+  marketing_consent_at?: string | null;
   last_login_at: string | null;
   created_at: string | null;
   roles?: Role[];

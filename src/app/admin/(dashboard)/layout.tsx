@@ -9,6 +9,7 @@ import { can } from "@/types/auth";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", permission: null },
+  { href: "/admin/customers", label: "Customers", permission: "customer.view" },
   { href: "/admin/users", label: "Users", permission: "user.manage" },
   { href: "/admin/roles", label: "Roles", permission: "role.manage" },
   { href: "/admin/audit-logs", label: "Audit log", permission: "audit.view" },

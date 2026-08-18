@@ -7,6 +7,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Field, FormAlert } from "@/components/ui/field";
 import { ApiError } from "@/lib/api";
 import { authService } from "@/services/auth";
+import { addressService } from "@/services/customer";
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
@@ -80,6 +81,32 @@ export default function ProfilePage() {
           Save changes
         </Button>
       </form>
+
+      <div className="border-t pt-5">
+        <CardTitle className="text-base">Marketing preferences</CardTitle>
+        <label className="mt-3 flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4"
+            checked={user?.marketing_consent ?? false}
+            onChange={async (event) => {
+              const updated = await addressService.setMarketingConsent(
+                event.target.checked,
+              );
+              setUser(updated);
+            }}
+          />
+          <span>
+            Email me about offers and new arrivals.
+            {user?.marketing_consent_at && (
+              <span className="text-muted-foreground block text-xs">
+                Last updated{" "}
+                {new Date(user.marketing_consent_at).toLocaleString()}
+              </span>
+            )}
+          </span>
+        </label>
+      </div>
     </Card>
   );
 }
