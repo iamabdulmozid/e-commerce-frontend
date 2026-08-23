@@ -19,6 +19,16 @@ export default function StoreLayout({
           </Link>
 
           <nav className="flex items-center gap-4 text-sm">
+            <Link href="/products" className="underline">
+              Products
+            </Link>
+            <Link href="/categories" className="underline">
+              Categories
+            </Link>
+            <Link href="/brands" className="underline">
+              Brands
+            </Link>
+
             {loading ? null : user ? (
               <Link href="/account" className="underline">
                 {user.name}

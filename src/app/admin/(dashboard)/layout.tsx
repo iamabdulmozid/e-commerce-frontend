@@ -3,16 +3,24 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
+import { SubscriptionBanner } from "@/components/billing/subscription-banner";
+import { ImpersonationBanner } from "@/components/platform/impersonation-banner";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { cn } from "@/lib/utils";
 import { can } from "@/types/auth";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", permission: null },
+  { href: "/admin/products", label: "Products", permission: "product.view" },
+  { href: "/admin/categories", label: "Categories", permission: "category.view" },
+  { href: "/admin/brands", label: "Brands", permission: "brand.view" },
+  { href: "/admin/attributes", label: "Attributes", permission: "product.view" },
+  { href: "/admin/media", label: "Media", permission: "media.upload" },
   { href: "/admin/customers", label: "Customers", permission: "customer.view" },
   { href: "/admin/users", label: "Users", permission: "user.manage" },
   { href: "/admin/roles", label: "Roles", permission: "role.manage" },
   { href: "/admin/audit-logs", label: "Audit log", permission: "audit.view" },
+  { href: "/admin/billing", label: "Billing", permission: "billing.view" },
 ];
 
 export default function AdminDashboardLayout({
@@ -68,6 +76,8 @@ export default function AdminDashboardLayout({
               Sign out
             </button>
           </header>
+          <ImpersonationBanner />
+          <SubscriptionBanner />
           <main className="p-6">{children}</main>
         </div>
       </div>

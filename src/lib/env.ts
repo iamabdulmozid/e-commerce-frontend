@@ -14,4 +14,15 @@ function required(name: string, value: string | undefined): string {
 export const env = {
   /** Base URL of the Laravel API, including the /api/v1 prefix. */
   apiUrl: required("NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL),
+
+  /**
+   * Stands in for a subdomain during local development, where the app is
+   * served from localhost rather than <slug>.platform.test. Unset in
+   * production — there the Host header is the only tenant identity, and the
+   * API refuses the header fallback outright.
+   */
+  devTenant: process.env.NEXT_PUBLIC_DEV_TENANT || undefined,
+
+  /** Hosts that mean "no tenant"; mirrors TENANCY_CENTRAL_DOMAINS. */
+  centralHosts: process.env.NEXT_PUBLIC_CENTRAL_HOSTS || undefined,
 };

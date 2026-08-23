@@ -1,4 +1,5 @@
 import { env } from "./env";
+import { tenantHeaders } from "./tenant";
 
 /**
  * Typed client for the Laravel API. Understands the standard envelope:
@@ -26,6 +27,12 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly errors: Record<string, string[] | string> = {},
+    /**
+     * Structured detail some failures carry alongside the message — a plan
+     * limit sends which feature, its ceiling and current usage, so the UI can
+     * be specific instead of saying "Forbidden".
+     */
+    public readonly data?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -43,6 +50,62 @@ export class ApiError extends Error {
 
   get isForbidden(): boolean {
     return this.status === 403;
+  }
+
+  /** Machine-readable code the API attaches to tenancy/billing failures. */
+  get code(): string | undefined {
+    const value = this.errors.code;
+    return Array.isArray(value) ? value[0] : value;
+  }
+
+  /**
+   * The store exists but is not serving: provisioning, suspended, or past due.
+   * Distinct from a 404 (no such store) and from a 500 (we broke something).
+   */
+  get isStoreUnavailable(): boolean {
+    return (
+      this.status === 503 &&
+      (this.code === "tenant_inactive" || this.code === "subscription_suspended")
+    );
+  }
+
+  /** A plan ceiling was reached. `planLimit` carries which one. */
+  get isPlanLimit(): boolean {
+    return this.status === 403 && this.code === "subscription.limit_exceeded";
+  }
+
+  /** A capability the current plan does not include. */
+  get isPlanFeature(): boolean {
+    return (
+      this.status === 403 && this.code === "subscription.feature_unavailable"
+    );
+  }
+
+  /**
+   * Detail the API attaches to a plan refusal, so the UI can say which limit
+   * was hit and what the ceiling is instead of just "Forbidden".
+   */
+  get planLimit():
+    | { feature: string; label: string; limit?: number; used?: number }
+    | undefined {
+    return this.data as
+      | { feature: string; label: string; limit?: number; used?: number }
+      | undefined;
+  }
+
+  /** A sentence worth showing a user, whatever kind of failure this was. */
+  get displayMessage(): string {
+    if (this.isPlanLimit && this.planLimit) {
+      const { label, limit, used } = this.planLimit;
+
+      return `You have reached your plan limit for ${label.toLowerCase()} (${used} of ${limit}). Upgrade to add more.`;
+    }
+
+    if (this.isPlanFeature && this.planLimit) {
+      return `${this.planLimit.label} is not included in your current plan.`;
+    }
+
+    return this.message;
   }
 }
 
@@ -66,9 +129,13 @@ function readCookie(name: string): string | undefined {
 export async function ensureCsrfCookie(): Promise<void> {
   if (readCookie("XSRF-TOKEN")) return;
 
+  // The tenant header matters here too, not just on API calls: this request
+  // starts the session, and session cookie names are per-tenant. Issuing the
+  // CSRF cookie in central context while every later call runs in tenant
+  // context means two different session cookies and a permanent 419 loop.
   await fetch(`${apiOrigin}/sanctum/csrf-cookie`, {
     credentials: "include",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...tenantHeaders() },
   });
 }
 
@@ -91,8 +158,16 @@ async function request<T>(
       ...init,
       headers: {
         Accept: "application/json",
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        // FormData sets its own Content-Type, including the multipart
+        // boundary. Overriding it produces a request the server cannot parse.
+        ...(init.body && !(init.body instanceof FormData)
+          ? { "Content-Type": "application/json" }
+          : {}),
         ...(csrfToken ? { "X-XSRF-TOKEN": csrfToken } : {}),
+        // Identifies the store in local development, where the app is served
+        // from localhost instead of <slug>.platform.test. Sends nothing in
+        // production; there the Host header decides and the API ignores this.
+        ...tenantHeaders(),
         ...init.headers,
       },
       credentials: "include",
@@ -124,6 +199,7 @@ async function request<T>(
       envelope.message ?? "Request failed",
       response.status,
       envelope.errors ?? {},
+      envelope.data,
     );
   }
 
@@ -136,7 +212,15 @@ export const api = {
     request<T>(path, {
       ...init,
       method: "POST",
-      body: body === undefined ? undefined : JSON.stringify(body),
+      // A FormData body is passed through untouched; anything else is JSON.
+      // `init.body` wins when no body argument was given, which is how file
+      // uploads reach here.
+      body:
+        body instanceof FormData
+          ? body
+          : body === undefined
+            ? init?.body
+            : JSON.stringify(body),
     }),
   patch: <T>(path: string, body?: unknown, init?: RequestInit) =>
     request<T>(path, { ...init, method: "PATCH", body: JSON.stringify(body) }),
