@@ -1,6 +1,10 @@
-import { ProductGrid } from "@/components/catalog/product-grid";
-import { Pagination } from "@/components/catalog/pagination";
-import { CatalogFilters } from "@/components/catalog/catalog-filters";
+import { ProductListing } from "@/components/catalog/product-listing";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Container } from "@/components/ui/container";
+import {
+  pickListingParams,
+  toSearchParams,
+} from "@/lib/catalog-query";
 import { serverFetch } from "@/lib/server-api";
 import type { Brand, CategoryNode, Product } from "@/services/catalog";
 import type { Paginated } from "@/types/auth";
@@ -10,30 +14,24 @@ import type { Paginated } from "@/types/auth";
  *
  * A Server Component because this is an SEO-critical page: the markup a
  * crawler sees has to contain the products, not a loading spinner that fetches
- * them afterwards.
+ * them afterwards. The interactive parts — sort control and mobile filter
+ * drawer — are islands inside it.
  */
 
 export const metadata = {
   title: "Products",
 };
 
-const ALLOWED = ["category", "brand", "min_price", "max_price", "sort", "page", "featured", "new"];
-
 export default async function ProductsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const params = await searchParams;
-
   // Only known keys are forwarded. Passing the query string through verbatim
-  // would let anyone probe the API with parameters this page never intended
-  // to expose.
-  const query = new URLSearchParams();
-  for (const key of ALLOWED) {
-    const value = params[key];
-    if (typeof value === "string" && value !== "") query.set(key, value);
-  }
+  // would let anyone probe the API with parameters this page never intended to
+  // expose (PRD 5B rule 14).
+  const active = pickListingParams(await searchParams);
+  const query = toSearchParams(active);
 
   const [products, tree, brands] = await Promise.all([
     serverFetch<Paginated<Product>>(`/products?${query}`),
@@ -42,35 +40,20 @@ export default async function ProductsPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Products</h1>
+    <Container className="py-8 lg:py-10">
+      <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Products" }]} />
 
-      <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
-        <CatalogFilters
-          categories={tree.items}
-          brands={brands.items}
-          active={{
-            category: typeof params.category === "string" ? params.category : undefined,
-            brand: typeof params.brand === "string" ? params.brand : undefined,
-            sort: typeof params.sort === "string" ? params.sort : undefined,
-          }}
-        />
+      <h1 className="mt-4 mb-8 text-3xl font-bold lg:text-4xl">
+        {active.q ? `Results for “${active.q}”` : "All products"}
+      </h1>
 
-        <div>
-          <div className="text-muted-foreground mb-4 text-sm">
-            {products.meta.total} product{products.meta.total === 1 ? "" : "s"}
-          </div>
-
-          <ProductGrid products={products.items} />
-
-          <Pagination
-            page={products.meta.current_page}
-            lastPage={products.meta.last_page}
-            basePath="/products"
-            query={query}
-          />
-        </div>
-      </div>
-    </main>
+      <ProductListing
+        products={products}
+        categories={tree.items}
+        brands={brands.items}
+        active={active}
+        basePath="/products"
+      />
+    </Container>
   );
 }

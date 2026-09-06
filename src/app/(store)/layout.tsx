@@ -1,53 +1,40 @@
-"use client";
+import { AnnouncementBar } from "@/components/store/announcement-bar";
+import { SiteFooter } from "@/components/store/site-footer";
+import { SiteHeader } from "@/components/store/site-header";
+import { SkipLink } from "@/components/store/skip-link";
+import { loadNavCategories, loadStoreName } from "@/lib/store-nav";
 
-import Link from "next/link";
-import { useAuth } from "@/components/auth/auth-provider";
-
-export default function StoreLayout({
+/**
+ * The storefront shell.
+ *
+ * A Server Component (PRD 5A rule 4). It used to carry "use client" purely to
+ * read `useAuth` for one header link, which put every storefront page inside a
+ * client boundary. The auth-aware piece is now `HeaderActions`, an island of
+ * its own, and the shell can fetch its own navigation on the server.
+ */
+export default async function StoreLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  // In parallel: two independent reads, and the shell should not wait for one
+  // to start the other.
+  const [categories, storeName] = await Promise.all([
+    loadNavCategories(),
+    loadStoreName(),
+  ]);
 
   return (
     <>
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
-          <Link href="/" className="font-semibold">
-            Store
-          </Link>
+      <SkipLink />
+      <AnnouncementBar />
+      <SiteHeader categories={categories} storeName={storeName} />
 
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/products" className="underline">
-              Products
-            </Link>
-            <Link href="/categories" className="underline">
-              Categories
-            </Link>
-            <Link href="/brands" className="underline">
-              Brands
-            </Link>
+      <main id="main" className="flex-1">
+        {children}
+      </main>
 
-            {loading ? null : user ? (
-              <Link href="/account" className="underline">
-                {user.name}
-              </Link>
-            ) : (
-              <>
-                <Link href="/login" className="underline">
-                  Sign in
-                </Link>
-                <Link href="/register" className="underline">
-                  Register
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
-
-      <div className="flex-1">{children}</div>
+      <SiteFooter categories={categories} storeName={storeName} />
     </>
   );
 }

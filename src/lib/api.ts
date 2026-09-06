@@ -112,6 +112,20 @@ export class ApiError extends Error {
 const apiOrigin = new URL(env.apiUrl).origin;
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+/**
+ * Is this a Super Admin Portal call?
+ *
+ * The platform API is central by definition: RequirePlatform 404s every
+ * /platform route the moment a tenant resolves, so a tenant header here does
+ * not merely leak context — it hides the whole portal behind "Resource not
+ * found". In production the host settles it, but in development the portal
+ * shares localhost:3000 with the storefront and only the path can tell them
+ * apart.
+ */
+function isPlatformPath(path: string): boolean {
+  return path === "/platform" || path.startsWith("/platform/");
+}
+
 function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
 
@@ -126,16 +140,20 @@ function readCookie(name: string): string | undefined {
  * Ask Laravel to set the XSRF-TOKEN cookie. Required once before the first
  * state-changing request of a browser session.
  */
-export async function ensureCsrfCookie(): Promise<void> {
+export async function ensureCsrfCookie(central = false): Promise<void> {
   if (readCookie("XSRF-TOKEN")) return;
 
   // The tenant header matters here too, not just on API calls: this request
   // starts the session, and session cookie names are per-tenant. Issuing the
   // CSRF cookie in central context while every later call runs in tenant
-  // context means two different session cookies and a permanent 419 loop.
+  // context means two different session cookies and a permanent 419 loop —
+  // and the mirror image of that for the portal, hence `central`.
   await fetch(`${apiOrigin}/sanctum/csrf-cookie`, {
     credentials: "include",
-    headers: { Accept: "application/json", ...tenantHeaders() },
+    headers: {
+      Accept: "application/json",
+      ...(central ? {} : tenantHeaders()),
+    },
   });
 }
 
@@ -145,9 +163,10 @@ async function request<T>(
   isRetry = false,
 ): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
+  const central = isPlatformPath(path);
 
   if (UNSAFE_METHODS.has(method) && typeof document !== "undefined") {
-    await ensureCsrfCookie();
+    await ensureCsrfCookie(central);
   }
 
   const csrfToken = readCookie("XSRF-TOKEN");
@@ -167,7 +186,8 @@ async function request<T>(
         // Identifies the store in local development, where the app is served
         // from localhost instead of <slug>.platform.test. Sends nothing in
         // production; there the Host header decides and the API ignores this.
-        ...tenantHeaders(),
+        // Never sent on a /platform route — see isPlatformPath.
+        ...(central ? {} : tenantHeaders()),
         ...init.headers,
       },
       credentials: "include",
@@ -179,7 +199,7 @@ async function request<T>(
   // 419 = session/CSRF token expired. Refresh the token once and replay.
   if (response.status === 419 && !isRetry && typeof document !== "undefined") {
     document.cookie = "XSRF-TOKEN=; Max-Age=0; path=/";
-    await ensureCsrfCookie();
+    await ensureCsrfCookie(central);
     return request<T>(path, init, true);
   }
 

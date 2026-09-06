@@ -100,18 +100,76 @@ export interface VariantAttribute {
   color_hex: string | null;
 }
 
+export interface PriceTier {
+  min_quantity: number;
+  amount: string;
+}
+
+/**
+ * The only price shape a client should read.
+ *
+ * `base` is the struck-through figure when discounted - what this shopper
+ * would otherwise pay today, not the merchant's compare-at claim.
+ */
+export interface Pricing {
+  base: string;
+  effective: string;
+  savings: string | null;
+  is_discounted: boolean;
+  tiers?: PriceTier[];
+}
+
 export interface Variant {
   id: number;
   sku: string;
   barcode?: string | null;
+  /** The base column. Read `pricing.effective` to display a price. */
   price: string;
   compare_price?: string | null;
+  pricing?: Pricing;
   /** Admin only; absent from every public response. */
   cost?: string | null;
   weight?: string | null;
   status: "active" | "inactive";
   is_default: boolean;
   attributes: VariantAttribute[];
+}
+
+export interface PriceRule {
+  id: number;
+  variant_id: number;
+  customer_group_id: number | null;
+  customer_group?: { id: number; name: string } | null;
+  name: string | null;
+  amount: string;
+  min_quantity: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  status: "active" | "inactive";
+  variant?: { id: number; sku: string; price: string; product_id: number };
+  created_at: string | null;
+}
+
+export interface PriceRulePayload {
+  variant_id?: number;
+  customer_group_id?: number | null;
+  name?: string | null;
+  amount?: string;
+  min_quantity?: number;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  status?: "active" | "inactive";
+}
+
+export interface PricePreviewRow {
+  variant_id: number;
+  sku: string;
+  base: string;
+  effective: string;
+  savings: string | null;
+  is_discounted: boolean;
+  rule_id: number | null;
+  rule_name: string | null;
 }
 
 export interface ProductImage {
@@ -276,6 +334,20 @@ export const catalogService = {
         : api.post<Attribute>("/admin/attributes", payload),
     deleteAttribute: (id: number) => api.delete<null>(`/admin/attributes/${id}`),
 
+    priceRules: (params: { variant_id?: number; customer_group_id?: number; status?: string; per_page?: number } = {}) =>
+      api.get<Paginated<PriceRule>>(`/admin/price-rules?${query(params)}`),
+    productPriceRules: (productId: number) =>
+      api.get<{ items: PriceRule[] }>(`/admin/products/${productId}/price-rules`),
+    savePriceRule: (payload: PriceRulePayload, id?: number) =>
+      id
+        ? api.patch<PriceRule>(`/admin/price-rules/${id}`, payload)
+        : api.post<PriceRule>("/admin/price-rules", payload),
+    deletePriceRule: (id: number) => api.delete<null>(`/admin/price-rules/${id}`),
+    previewPrices: (
+      productId: number,
+      payload: { customer_group_id?: number | null; quantity?: number; at?: string },
+    ) => api.post<{ variants: PricePreviewRow[] }>(`/admin/products/${productId}/price-preview`, payload),
+
     products: (filters: ProductFilters = {}) =>
       api.get<Paginated<Product>>(`/admin/products?${query(filters)}`),
     product: (id: number) => api.get<Product>(`/admin/products/${id}`),
@@ -307,20 +379,3 @@ export const catalogService = {
     ) => api.put<Product>(`/admin/products/${productId}/images`, { images }),
   },
 };
-
-/** Price range for a card: a single figure when the variants agree. */
-export function priceLabel(
-  range: { min: string; max: string } | null | undefined,
-  currency = "BDT",
-): string {
-  if (!range) return "—";
-
-  const fmt = (v: string) => {
-    const [whole, frac = "00"] = v.split(".");
-    return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${frac}`;
-  };
-
-  return range.min === range.max
-    ? `${currency} ${fmt(range.min)}`
-    : `${currency} ${fmt(range.min)} – ${fmt(range.max)}`;
-}

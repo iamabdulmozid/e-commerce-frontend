@@ -6,6 +6,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { ProductImagesTab } from "@/components/catalog/product-images-tab";
 import { ProductInfoTab } from "@/components/catalog/product-info-tab";
+import { ProductPricingTab } from "@/components/catalog/product-pricing-tab";
 import { ProductVariantsTab } from "@/components/catalog/product-variants-tab";
 import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/ui/field";
@@ -13,11 +14,12 @@ import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { catalogService } from "@/services/catalog";
 
-type Tab = "info" | "variants" | "images";
+type Tab = "info" | "variants" | "pricing" | "images";
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "info", label: "Info" },
   { id: "variants", label: "Variants" },
+  { id: "pricing", label: "Pricing" },
   { id: "images", label: "Images" },
 ];
 
@@ -110,6 +112,7 @@ export default function ProductEditorPage() {
 
       {tab === "info" && <ProductInfoTab product={product} onRun={run} />}
       {tab === "variants" && <ProductVariantsTab product={product} onRun={run} />}
+      {tab === "pricing" && <ProductPricingTab product={product} onRun={run} />}
       {tab === "images" && <ProductImagesTab product={product} onRun={run} />}
     </div>
   );

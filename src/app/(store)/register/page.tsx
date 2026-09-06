@@ -1,11 +1,12 @@
 "use client";
 
+import { Lock, Mail, Phone, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Field, FormAlert } from "@/components/ui/field";
 import { ApiError } from "@/lib/api";
 import { authService } from "@/services/auth";
@@ -49,66 +50,70 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md p-6">
-      <Card className="space-y-5">
-        <div className="space-y-1">
-          <CardTitle>Create your account</CardTitle>
-          <CardDescription>It only takes a minute.</CardDescription>
-        </div>
-
-        {error && !error.errors && <FormAlert message={error.message} />}
-
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <Field
-            label="Full name"
-            name="name"
-            required
-            error={error?.fieldError("name")}
-          />
-          <Field
-            label="Email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            error={error?.fieldError("email")}
-          />
-          <Field
-            label="Phone (optional)"
-            name="phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder="01XXXXXXXXX"
-            error={error?.fieldError("phone")}
-          />
-          <Field
-            label="Password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            error={error?.fieldError("password")}
-          />
-          <Field
-            label="Confirm password"
-            name="password_confirmation"
-            type="password"
-            autoComplete="new-password"
-            required
-          />
-
-          <Button type="submit" className="w-full" loading={loading}>
-            Create account
-          </Button>
-        </form>
-
-        <p className="text-muted-foreground text-sm">
+    <AuthShell
+      title="Create your account"
+      description="It only takes a minute."
+      footer={
+        <p className="text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/login" className="underline">
+          <Link href="/login" className="text-primary font-medium hover:underline">
             Sign in
           </Link>
         </p>
-      </Card>
-    </main>
+      }
+    >
+      {error && !error.errors && <FormAlert message={error.message} />}
+
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <Field
+          label="Full name"
+          name="name"
+          icon={<User />}
+          required
+          error={error?.fieldError("name")}
+        />
+        <Field
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          icon={<Mail />}
+          required
+          error={error?.fieldError("email")}
+        />
+        <Field
+          label="Phone"
+          name="phone"
+          type="tel"
+          autoComplete="tel"
+          icon={<Phone />}
+          placeholder="01XXXXXXXXX"
+          hint="Optional — used for delivery updates."
+          error={error?.fieldError("phone")}
+        />
+        <Field
+          label="Password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          icon={<Lock />}
+          required
+          hint="At least 8 characters."
+          error={error?.fieldError("password")}
+        />
+        <Field
+          label="Confirm password"
+          name="password_confirmation"
+          type="password"
+          autoComplete="new-password"
+          icon={<Lock />}
+          required
+        />
+
+        <Button type="submit" full loading={loading}>
+          Create account
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

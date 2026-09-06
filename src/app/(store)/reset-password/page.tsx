@@ -1,10 +1,13 @@
 "use client";
 
+import { Lock, Mail } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Field, FormAlert } from "@/components/ui/field";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
 import { authService } from "@/services/auth";
 
@@ -58,6 +61,7 @@ function ResetPasswordForm() {
           label="Email"
           name="email"
           type="email"
+          icon={<Mail />}
           value={email}
           readOnly
           disabled
@@ -67,6 +71,7 @@ function ResetPasswordForm() {
           name="password"
           type="password"
           autoComplete="new-password"
+          icon={<Lock />}
           required
           error={error?.fieldError("password")}
         />
@@ -75,9 +80,10 @@ function ResetPasswordForm() {
           name="password_confirmation"
           type="password"
           autoComplete="new-password"
+          icon={<Lock />}
           required
         />
-        <Button type="submit" className="w-full" loading={loading}>
+        <Button type="submit" full loading={loading}>
           Set new password
         </Button>
       </form>
@@ -87,21 +93,26 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <main className="mx-auto w-full max-w-md p-6">
-      <Card className="space-y-5">
-        <div className="space-y-1">
-          <CardTitle>Choose a new password</CardTitle>
-          <CardDescription>
-            Use at least 8 characters with letters and numbers.
-          </CardDescription>
-        </div>
-
-        <Suspense
-          fallback={<p className="text-muted-foreground text-sm">Loading…</p>}
-        >
-          <ResetPasswordForm />
-        </Suspense>
-      </Card>
-    </main>
+    <AuthShell
+      title="Choose a new password"
+      description="Use at least 8 characters with letters and numbers."
+      footer={
+        <Link href="/login" className="text-primary font-medium hover:underline">
+          Back to sign in
+        </Link>
+      }
+    >
+      <Suspense
+        fallback={
+          <div className="space-y-4">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+        }
+      >
+        <ResetPasswordForm />
+      </Suspense>
+    </AuthShell>
   );
 }

@@ -9,7 +9,8 @@ import { Card } from "@/components/ui/card";
 import { FormAlert } from "@/components/ui/field";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { catalogService, priceLabel } from "@/services/catalog";
+import { PriceRange } from "@/components/catalog/price";
+import { catalogService } from "@/services/catalog";
 import { can } from "@/types/auth";
 
 const STATUSES = [
@@ -132,8 +133,8 @@ export default function AdminProductsPage() {
                 <td className="text-muted-foreground px-4 py-3">
                   {product.brand?.name ?? "—"}
                 </td>
-                <td className="px-4 py-3 tabular-nums whitespace-nowrap">
-                  {priceLabel(product.price_range)}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <PriceRange range={product.price_range} />
                 </td>
                 <td className="text-muted-foreground px-4 py-3">{product.product_type}</td>
                 <td className="px-4 py-3">

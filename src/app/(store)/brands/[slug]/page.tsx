@@ -1,18 +1,17 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pagination } from "@/components/catalog/pagination";
-import { ProductGrid } from "@/components/catalog/product-grid";
+import { ProductListing } from "@/components/catalog/product-listing";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Container } from "@/components/ui/container";
 import { ApiError } from "@/lib/api";
+import { pickListingParams, toSearchParams } from "@/lib/catalog-query";
 import { serverFetch } from "@/lib/server-api";
-import type { Brand, Product } from "@/services/catalog";
+import type { Brand, CategoryNode, Product } from "@/services/catalog";
 import type { Paginated } from "@/types/auth";
 
 /**
  * Brand landing page — the brand's own URL, with its logo and copy, rather
  * than the generic listing under a filter.
  */
-
-const ALLOWED = ["min_price", "max_price", "sort", "page", "category"];
 
 async function loadBrand(slug: string): Promise<Brand> {
   try {
@@ -24,7 +23,11 @@ async function loadBrand(slug: string): Promise<Brand> {
   }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
 
   try {
@@ -48,57 +51,60 @@ export default async function BrandPage({
 }) {
   const [{ slug }, search] = await Promise.all([params, searchParams]);
 
-  const query = new URLSearchParams();
-  for (const key of ALLOWED) {
-    const value = search[key];
-    if (typeof value === "string" && value !== "") query.set(key, value);
-  }
+  // The route owns the brand; see the note on the category page.
+  const active = { ...pickListingParams(search), brand: undefined };
 
   const brand = await loadBrand(slug);
 
-  const productQuery = new URLSearchParams(query);
-  productQuery.set("brand", slug);
+  const query = toSearchParams(active);
+  query.set("brand", slug);
 
-  const products = await serverFetch<Paginated<Product>>(`/products?${productQuery}`);
+  const [products, tree, brands] = await Promise.all([
+    serverFetch<Paginated<Product>>(`/products?${query}`),
+    serverFetch<{ items: CategoryNode[] }>("/categories", 300),
+    serverFetch<{ items: Brand[] }>("/brands", 300),
+  ]);
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-8">
-      <nav className="text-muted-foreground mb-6 text-sm" aria-label="Breadcrumb">
-        <Link href="/products" className="hover:underline">
-          Products
-        </Link>
-        {" / "}
-        <span className="text-foreground">{brand.name}</span>
-      </nav>
-
-      <div className="flex flex-wrap items-center gap-4">
-        {brand.logo && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={brand.logo.url}
-            alt={brand.logo.alt ?? brand.name}
-            className="h-16 w-auto max-w-40 object-contain"
-          />
-        )}
-        <h1 className="text-2xl font-bold">{brand.name}</h1>
-      </div>
-
-      {brand.description && (
-        <p className="text-muted-foreground mt-3 max-w-2xl text-sm">{brand.description}</p>
-      )}
-
-      <div className="text-muted-foreground mt-8 mb-4 text-sm">
-        {products.meta.total} product{products.meta.total === 1 ? "" : "s"}
-      </div>
-
-      <ProductGrid products={products.items} />
-
-      <Pagination
-        page={products.meta.current_page}
-        lastPage={products.meta.last_page}
-        basePath={`/brands/${slug}`}
-        query={query}
+    <Container className="py-8 lg:py-10">
+      <Breadcrumb
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Brands", href: "/brands" },
+          { label: brand.name },
+        ]}
       />
-    </main>
+
+      <header className="bg-muted/50 mt-6 mb-8 flex flex-wrap items-center gap-6 rounded-2xl p-6 lg:p-8">
+        {brand.logo && (
+          <div className="bg-card shadow-card flex size-24 shrink-0 items-center justify-center rounded-xl p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={brand.logo.url}
+              alt={brand.logo.alt ?? brand.name}
+              className="max-h-full max-w-full object-contain"
+            />
+          </div>
+        )}
+
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold lg:text-4xl">{brand.name}</h1>
+          {brand.description && (
+            <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
+              {brand.description}
+            </p>
+          )}
+        </div>
+      </header>
+
+      <ProductListing
+        products={products}
+        categories={tree.items}
+        brands={brands.items}
+        active={active}
+        basePath={`/brands/${slug}`}
+        fixed={["brand"]}
+      />
+    </Container>
   );
 }

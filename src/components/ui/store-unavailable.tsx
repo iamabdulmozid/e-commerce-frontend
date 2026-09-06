@@ -1,3 +1,4 @@
+import { Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StoreUnavailableProps {
@@ -40,12 +41,16 @@ export function StoreUnavailable({ code, className }: StoreUnavailableProps) {
   return (
     <div
       className={cn(
-        "flex min-h-[60vh] flex-col items-center justify-center px-6 text-center",
+        "container-page flex min-h-[60vh] flex-col items-center justify-center py-20 text-center",
         className,
       )}
       role="status"
     >
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <span className="bg-muted text-muted-foreground mb-6 flex size-16 items-center justify-center rounded-2xl">
+        <Store className="size-8" aria-hidden />
+      </span>
+
+      <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">{title}</h1>
       <p className="text-muted-foreground mt-3 max-w-md text-sm">{body}</p>
     </div>
   );

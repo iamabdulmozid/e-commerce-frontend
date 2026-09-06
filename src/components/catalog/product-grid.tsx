@@ -1,51 +1,75 @@
-import Link from "next/link";
-import { priceLabel, type Product } from "@/services/catalog";
+import { PackageSearch } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ProductCard } from "@/components/catalog/product-card";
+import { cn } from "@/lib/utils";
+import type { Product } from "@/services/catalog";
 
 /**
- * Product cards.
+ * A grid of product cards.
  *
- * A Server Component with no interactivity: everything a card shows comes from
- * the listing payload, which is exactly why the API sends a price range and a
- * primary image rather than making the client reduce over variants.
+ * A Server Component with no interactivity of its own: every card is a link,
+ * and everything a card shows arrives in the listing payload.
+ *
+ * The first four cards are marked priority so the images above the fold are
+ * not lazy-loaded — lazy-loading the LCP image is a measurable regression, and
+ * the fix is one prop.
  */
-export function ProductGrid({ products }: { products: Product[] }) {
+export function ProductGrid({
+  products,
+  className,
+  emptyAction,
+}: {
+  products: Product[];
+  className?: string;
+  /** Offered when nothing matches — usually "clear the filters". */
+  emptyAction?: React.ReactNode;
+}) {
   if (products.length === 0) {
     return (
-      <p className="text-muted-foreground py-12 text-center text-sm">
-        Nothing matches those filters.
-      </p>
+      <EmptyState
+        icon={PackageSearch}
+        title="No products match"
+        description="Try widening the price range, or removing a filter or two."
+        action={
+          emptyAction ?? (
+            <ButtonLink href="/products" variant="outline">
+              Browse all products
+            </ButtonLink>
+          )
+        }
+      />
     );
   }
 
   return (
-    <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {products.map((product) => (
+    <ul
+      className={cn(
+        "grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 xl:grid-cols-4",
+        className,
+      )}
+    >
+      {products.map((product, index) => (
         <li key={product.id}>
-          <Link href={`/products/${product.slug}`} className="group block">
-            <div className="bg-muted aspect-square overflow-hidden rounded-lg">
-              {product.primary_image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={product.primary_image.url}
-                  alt={product.primary_image.alt}
-                  className="h-full w-full object-cover transition group-hover:scale-105"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-                  No image
-                </div>
-              )}
-            </div>
+          <ProductCard product={product} priority={index < 4} />
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-            <div className="mt-3 space-y-1">
-              {product.brand && (
-                <p className="text-muted-foreground text-xs uppercase">{product.brand.name}</p>
-              )}
-              <h2 className="font-medium group-hover:underline">{product.name}</h2>
-              <p className="text-sm tabular-nums">{priceLabel(product.price_range)}</p>
-            </div>
-          </Link>
+/** A horizontal rail — used by the home page's product bands. */
+export function ProductRail({ products }: { products: Product[] }) {
+  if (products.length === 0) return null;
+
+  return (
+    <ul className="scrollbar-none -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-4">
+      {products.map((product, index) => (
+        <li
+          key={product.id}
+          className="w-[46vw] shrink-0 snap-start sm:w-auto"
+        >
+          <ProductCard product={product} priority={index < 4} />
         </li>
       ))}
     </ul>

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Field, FormAlert } from "@/components/ui/field";
 import { ApiError } from "@/lib/api";
+import { tenantHostname, tenantOrigin } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/services/billing";
 import { platformService, type Package, type Tenant } from "@/services/platform";
@@ -65,8 +66,12 @@ export default function NewTenantPage() {
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Tenant | null>(null);
 
-  const { data: packagesData } = useSWR("/platform/packages", () =>
-    platformService.packages(),
+  // The catalogue cannot change during a two-minute wizard, and refetching it
+  // every time the operator tabs away and back is pure noise.
+  const { data: packagesData } = useSWR(
+    "/platform/packages",
+    () => platformService.packages(),
+    { revalidateOnFocus: false, revalidateIfStale: false },
   );
 
   const packages = packagesData?.items.filter((p) => p.is_active) ?? [];
@@ -168,33 +173,35 @@ export default function NewTenantPage() {
             <div className="space-y-1">
               <CardTitle>Store</CardTitle>
               <CardDescription>
-                The slug becomes the subdomain and cannot be changed later.
+                The subdomain is the store&apos;s address. It also names the
+                store&apos;s database, so it cannot be changed later.
               </CardDescription>
             </div>
 
+            {/*
+             * The store name never writes to the subdomain. Two stores may
+             * legitimately share a name, and deriving the address from it made
+             * that collide on an unexplained "already taken" (PRD 3C rule 21).
+             */}
             <Field
               label="Store name"
               value={draft.name}
-              onChange={(e) => {
-                set("name", e.target.value);
-                // Suggest a slug while the operator has not typed one.
-                if (!draft.slug || draft.slug === slugify(draft.name)) {
-                  set("slug", slugify(e.target.value));
-                }
-              }}
+              onChange={(e) => set("name", e.target.value)}
               required
             />
 
             <div>
               <Field
-                label="Slug"
+                label="Subdomain"
                 value={draft.slug}
                 onChange={(e) => set("slug", slugify(e.target.value))}
                 error={error?.fieldError("slug")}
                 required
               />
               <p className="text-muted-foreground mt-1 text-xs">
-                {draft.slug ? `${draft.slug}.platform.test` : "subdomain preview"}
+                {draft.slug ? tenantHostname(draft.slug) : "subdomain preview"}
+                {" · "}
+                Some names are reserved by the platform.
               </p>
             </div>
 
@@ -302,15 +309,20 @@ export default function NewTenantPage() {
             </label>
 
             {!draft.invite && (
-              <Field
-                label="Password"
-                type="password"
-                value={draft.adminPassword}
-                onChange={(e) => set("adminPassword", e.target.value)}
-                error={error?.fieldError("admin.password")}
-                autoComplete="new-password"
-                required
-              />
+              <div>
+                <Field
+                  label="Password"
+                  type="password"
+                  value={draft.adminPassword}
+                  onChange={(e) => set("adminPassword", e.target.value)}
+                  error={error?.fieldError("admin.password")}
+                  autoComplete="new-password"
+                  required
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {PASSWORD_HINT}
+                </p>
+              </div>
             )}
           </>
         )}
@@ -324,7 +336,7 @@ export default function NewTenantPage() {
 
             <dl className="space-y-2 text-sm">
               <Row label="Store" value={draft.name} />
-              <Row label="Address" value={`${draft.slug}.platform.test`} />
+              <Row label="Address" value={tenantHostname(draft.slug)} />
               <Row label="Package" value={selected?.name ?? "No plan"} />
               {selected && (
                 <Row
@@ -377,11 +389,23 @@ function canAdvance(step: Step, draft: Draft): boolean {
     return (
       draft.adminName.length > 0 &&
       draft.adminEmail.length > 0 &&
-      (draft.invite || draft.adminPassword.length >= 8)
+      (draft.invite || isPasswordAcceptable(draft.adminPassword))
     );
   }
 
   return true;
+}
+
+/**
+ * Mirrors Password::defaults() in AppServiceProvider — length only, no
+ * composition rules. Kept in step deliberately: if this drifts stricter than
+ * the API the operator is blocked for no reason, and if it drifts looser they
+ * reach Review with a password the API will reject.
+ */
+const PASSWORD_HINT = "At least 8 characters.";
+
+function isPasswordAcceptable(value: string): boolean {
+  return value.length >= 8;
 }
 
 function slugify(value: string): string {
@@ -445,11 +469,32 @@ function ProvisioningPanel({ tenant, onDone }: { tenant: Tenant; onDone: () => v
   const { data: current } = useSWR(
     `/platform/tenants/${tenant.id}`,
     () => platformService.tenant(tenant.id),
-    { refreshInterval: 2000, fallbackData: tenant },
+    {
+      fallbackData: tenant,
+      // Poll only while there is something to wait for. An unconditional
+      // interval kept hitting the API forever once the tenant went active —
+      // and indefinitely when it never left `provisioning` at all.
+      refreshInterval: (latest) =>
+        latest?.status === "provisioning" ? 2000 : 0,
+    },
   );
 
   const status = current?.status ?? tenant.status;
   const [retrying, setRetrying] = useState(false);
+  const [stalled, setStalled] = useState(false);
+
+  // Provisioning is a queued job. If it has not been picked up well past the
+  // few seconds it takes, the worker is almost certainly not running — say so,
+  // rather than spinning a progress panel at the operator indefinitely.
+  useEffect(() => {
+    if (status !== "provisioning") {
+      return;
+    }
+
+    const timer = setTimeout(() => setStalled(true), 30_000);
+
+    return () => clearTimeout(timer);
+  }, [status]);
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -462,6 +507,12 @@ function ProvisioningPanel({ tenant, onDone }: { tenant: Tenant; onDone: () => v
             Creating its database, running migrations and setting up the admin account.
             This usually takes a few seconds.
           </p>
+          {stalled && (
+            <FormAlert
+              tone="error"
+              message="Still waiting. Provisioning runs on the queue — check that a worker is running (php artisan queue:work). The store will finish on its own once one is."
+            />
+          )}
         </Card>
       )}
 
@@ -470,7 +521,7 @@ function ProvisioningPanel({ tenant, onDone }: { tenant: Tenant; onDone: () => v
           <FormAlert tone="success" message="Store ready." />
           <p className="text-sm">
             <a
-              href={`http://${current?.primary_domain}/admin`}
+              href={`${tenantOrigin(current?.primary_domain ?? "")}/admin`}
               className="underline"
               target="_blank"
               rel="noreferrer"
@@ -494,6 +545,9 @@ function ProvisioningPanel({ tenant, onDone }: { tenant: Tenant; onDone: () => v
             loading={retrying}
             onClick={async () => {
               setRetrying(true);
+              // A retry restarts the wait, so the stall warning must not carry
+              // over from the previous attempt.
+              setStalled(false);
               try {
                 await platformService.retryProvisioning(tenant.id);
               } finally {

@@ -1,9 +1,10 @@
 "use client";
 
+import { Mail } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Field, FormAlert } from "@/components/ui/field";
 import { ApiError } from "@/lib/api";
 import { authService } from "@/services/auth";
@@ -32,35 +33,31 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md p-6">
-      <Card className="space-y-5">
-        <div className="space-y-1">
-          <CardTitle>Reset your password</CardTitle>
-          <CardDescription>
-            We&apos;ll email you a link to choose a new one.
-          </CardDescription>
-        </div>
-
-        {status && <FormAlert message={status} tone="success" />}
-        {error && <FormAlert message={error} />}
-
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <Field
-            label="Email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-          />
-          <Button type="submit" className="w-full" loading={loading}>
-            Send reset link
-          </Button>
-        </form>
-
-        <Link href="/login" className="text-muted-foreground text-sm underline">
+    <AuthShell
+      title="Reset your password"
+      description="We'll email you a link to choose a new one."
+      footer={
+        <Link href="/login" className="text-primary font-medium hover:underline">
           Back to sign in
         </Link>
-      </Card>
-    </main>
+      }
+    >
+      {status && <FormAlert message={status} tone="success" />}
+      {error && <FormAlert message={error} />}
+
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <Field
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          icon={<Mail />}
+          required
+        />
+        <Button type="submit" full loading={loading}>
+          Send reset link
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

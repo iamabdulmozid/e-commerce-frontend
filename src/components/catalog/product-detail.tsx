@@ -1,20 +1,31 @@
 "use client";
 
+import { Expand } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Price, PriceTiers } from "@/components/catalog/price";
+import { Badge } from "@/components/ui/badge";
+import { Lightbox } from "@/components/ui/lightbox";
+import { StoreImage } from "@/components/ui/store-image";
+import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { Product, Variant } from "@/services/catalog";
 
 /**
- * Product detail with a variant picker.
+ * Product detail with a gallery and a variant picker.
  *
- * The one interactive part of an otherwise server-rendered page: choosing
- * "Black" then "M" has to resolve to a specific variant, and swap the price
- * and gallery with it.
+ * The interactive part of an otherwise server-rendered page: choosing "Black"
+ * then "M" has to resolve to a specific variant, and swap the price and the
+ * gallery with it.
  *
  * Combinations that do not exist are disabled rather than hidden. A shopper
- * who picked Black and finds Size L greyed out learns something ("that one is
+ * who picks Black and finds Size L greyed out learns something ("that one is
  * not made in L"); one who finds L silently missing just thinks the page is
  * broken.
+ *
+ * Absent on purpose: stock, delivery estimates and add-to-cart. Inventory is
+ * Phase 7 and the cart is Phase 8 — and a guess about availability is the one
+ * thing a storefront must never make (engineering rule 3).
  */
 export function ProductDetail({ product }: { product: Product }) {
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
@@ -23,7 +34,11 @@ export function ProductDetail({ product }: { product: Product }) {
   const attributes = useMemo(() => {
     const map = new Map<
       number,
-      { id: number; name: string; values: Map<number, { id: number; value: string; hex: string | null }> }
+      {
+        id: number;
+        name: string;
+        values: Map<number, { id: number; value: string; hex: string | null }>;
+      }
     >();
 
     for (const variant of variants) {
@@ -58,140 +73,284 @@ export function ProductDetail({ product }: { product: Product }) {
     return picked;
   });
 
-  const selected = useMemo(() => findVariant(variants, selection), [variants, selection]);
+  const selected = useMemo(
+    () => findVariant(variants, selection),
+    [variants, selection],
+  );
 
-  const images = useMemo(() => {
+  const gallery = useMemo(() => {
     const all = product.images ?? [];
 
     // Images bound to the chosen variant win; otherwise show the unbound ones,
     // so a colour swap changes the gallery without emptying it.
-    const forVariant = selected ? all.filter((i) => i.variant_id === selected.id) : [];
+    const forVariant = selected
+      ? all.filter((image) => image.variant_id === selected.id)
+      : [];
 
-    return forVariant.length > 0 ? forVariant : all.filter((i) => i.variant_id === null);
+    const resolved =
+      forVariant.length > 0
+        ? forVariant
+        : all.filter((image) => image.variant_id === null);
+
+    return resolved.length > 0 ? resolved : all;
   }, [product.images, selected]);
 
-  const [activeImage, setActiveImage] = useState(0);
-  const gallery = images.length > 0 ? images : (product.images ?? []);
-  const current = gallery[Math.min(activeImage, gallery.length - 1)];
+  // Clamped rather than reset in an effect: the gallery shrinks when a variant
+  // with fewer photographs is chosen, and clamping keeps that a pure render.
+  const [requestedImage, setRequestedImage] = useState(0);
+  const imageIndex = Math.min(requestedImage, Math.max(gallery.length - 1, 0));
+  const current = gallery[imageIndex];
+
+  const [zoomed, setZoomed] = useState(false);
+
+  const tabs: TabItem[] = [];
+
+  if (product.description) {
+    tabs.push({
+      id: "description",
+      label: "Description",
+      content: (
+        <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed whitespace-pre-line">
+          {product.description}
+        </p>
+      ),
+    });
+  }
+
+  if (selected) {
+    tabs.push({
+      id: "specifications",
+      label: "Specifications",
+      content: (
+        <dl className="max-w-lg divide-border divide-y text-sm">
+          <SpecRow label="SKU" value={<span className="font-mono">{selected.sku}</span>} />
+          {product.brand && <SpecRow label="Brand" value={product.brand.name} />}
+          {selected.attributes.map((attribute) => (
+            <SpecRow
+              key={attribute.attribute_id}
+              label={attribute.attribute ?? "Option"}
+              value={attribute.value}
+            />
+          ))}
+          {selected.weight && <SpecRow label="Weight" value={`${selected.weight} kg`} />}
+        </dl>
+      ),
+    });
+  }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-2">
-      <div>
-        <div className="bg-muted aspect-square overflow-hidden rounded-lg">
-          {current ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={current.url} alt={current.alt} className="h-full w-full object-cover" />
-          ) : (
-            <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-              No image
-            </div>
-          )}
-        </div>
+    <>
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
+        {/* --- gallery -------------------------------------------------- */}
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <div className="group relative">
+            <StoreImage
+              src={current?.url}
+              alt={current?.alt ?? product.name}
+              fallbackLabel={product.name}
+              priority
+              sizes="(min-width: 1024px) 45vw, 100vw"
+              className="rounded-2xl"
+            />
 
-        {gallery.length > 1 && (
-          <div className="mt-3 flex gap-2 overflow-x-auto">
-            {gallery.map((image, index) => (
+            {current && (
               <button
-                key={image.id}
-                onClick={() => setActiveImage(index)}
-                aria-label={`View image ${index + 1}`}
-                className={cn(
-                  "size-16 shrink-0 overflow-hidden rounded border",
-                  index === activeImage ? "border-primary" : "border-transparent",
-                )}
+                type="button"
+                onClick={() => setZoomed(true)}
+                aria-label="View image full screen"
+                className="bg-card/90 text-foreground shadow-card hover:bg-card absolute right-3 bottom-3 inline-flex size-10 items-center justify-center rounded-full backdrop-blur transition-colors"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={image.thumb_url} alt="" className="h-full w-full object-cover" />
+                <Expand className="size-4" />
               </button>
-            ))}
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="space-y-6">
-        <div>
-          {product.brand && (
-            <p className="text-muted-foreground text-sm uppercase">{product.brand.name}</p>
-          )}
-          <h1 className="text-2xl font-bold">{product.name}</h1>
-          {product.short_description && (
-            <p className="text-muted-foreground mt-2">{product.short_description}</p>
-          )}
-        </div>
-
-        <div className="flex items-baseline gap-3">
-          <span className="text-2xl font-semibold tabular-nums">
-            {selected ? `BDT ${selected.price}` : "—"}
-          </span>
-          {selected?.compare_price && (
-            <span className="text-muted-foreground text-lg line-through tabular-nums">
-              BDT {selected.compare_price}
-            </span>
-          )}
-        </div>
-
-        {attributes.map((attribute) => (
-          <div key={attribute.id}>
-            <p className="mb-2 text-sm font-medium">{attribute.name}</p>
-            <div className="flex flex-wrap gap-2">
-              {attribute.values.map((value) => {
-                const available = isAvailable(variants, selection, attribute.id, value.id);
-                const isSelected = selection[attribute.id] === value.id;
-
-                return (
-                  <button
-                    key={value.id}
-                    disabled={!available}
-                    onClick={() =>
-                      setSelection((current) => ({ ...current, [attribute.id]: value.id }))
-                    }
-                    className={cn(
-                      "rounded-md border px-3 py-1.5 text-sm",
-                      isSelected && "border-primary bg-accent font-medium",
-                      !available && "cursor-not-allowed opacity-40 line-through",
-                    )}
-                  >
-                    {value.hex && (
-                      <span
-                        aria-hidden
-                        className="mr-2 inline-block size-3 rounded-full border align-middle"
-                        style={{ backgroundColor: value.hex }}
-                      />
-                    )}
-                    {value.value}
-                  </button>
-                );
-              })}
+          {gallery.length > 1 && (
+            <div className="scrollbar-none mt-3 flex gap-2.5 overflow-x-auto pb-1">
+              {gallery.map((image, index) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  onClick={() => setRequestedImage(index)}
+                  aria-label={`View image ${index + 1} of ${gallery.length}`}
+                  aria-current={index === imageIndex}
+                  className={cn(
+                    "size-18 shrink-0 overflow-hidden rounded-xl border-2 transition-colors",
+                    index === imageIndex
+                      ? "border-primary"
+                      : "border-transparent hover:border-border",
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image.thumb_url}
+                    alt=""
+                    loading="lazy"
+                    className="size-full object-cover"
+                  />
+                </button>
+              ))}
             </div>
-          </div>
-        ))}
-
-        <div className="border-t pt-4">
-          {/*
-            Stock and add-to-cart are Phases 7 and 8. Saying "in stock" here
-            would be a guess, and a guess about availability is the one thing
-            a storefront must not do.
-          */}
-          <p className="text-muted-foreground text-sm">
-            {selected ? `SKU ${selected.sku}` : "Choose an option"}
-          </p>
+          )}
         </div>
 
-        {product.description && (
-          <div className="border-t pt-6">
-            <h2 className="mb-2 font-medium">Description</h2>
-            <p className="text-muted-foreground text-sm whitespace-pre-line">
-              {product.description}
+        {/* --- buy box -------------------------------------------------- */}
+        <div className="space-y-7">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              {product.brand && (
+                <Link
+                  href={`/brands/${product.brand.slug}`}
+                  className="text-primary text-xs font-semibold tracking-widest uppercase hover:underline"
+                >
+                  {product.brand.name}
+                </Link>
+              )}
+              {product.is_new_arrival && (
+                <Badge tone="new" size="sm">
+                  New
+                </Badge>
+              )}
+              {product.is_bestseller && (
+                <Badge tone="primary" size="sm">
+                  Bestseller
+                </Badge>
+              )}
+            </div>
+
+            <h1 className="mt-2 text-3xl font-bold lg:text-4xl">{product.name}</h1>
+
+            {product.short_description && (
+              <p className="text-muted-foreground mt-3 max-w-prose">
+                {product.short_description}
+              </p>
+            )}
+          </div>
+
+          {/*
+            Resolved server-side. The client never computes a price — a browser
+            deciding what something costs is exactly what engineering rule 2
+            forbids, whether it is a total or a single unit.
+          */}
+          <div className="space-y-4">
+            <Price pricing={selected?.pricing} fallback={selected?.price} size="lg" />
+            <PriceTiers tiers={selected?.pricing?.tiers} />
+          </div>
+
+          {attributes.map((attribute) => (
+            <fieldset key={attribute.id}>
+              <legend className="mb-2.5 text-sm font-medium">
+                {attribute.name}
+                {selection[attribute.id] && (
+                  <span className="text-muted-foreground ml-2 font-normal">
+                    {
+                      attribute.values.find(
+                        (value) => value.id === selection[attribute.id],
+                      )?.value
+                    }
+                  </span>
+                )}
+              </legend>
+
+              <div className="flex flex-wrap gap-2">
+                {attribute.values.map((value) => {
+                  const available = isAvailable(
+                    variants,
+                    selection,
+                    attribute.id,
+                    value.id,
+                  );
+                  const isSelected = selection[attribute.id] === value.id;
+
+                  return (
+                    <button
+                      key={value.id}
+                      type="button"
+                      disabled={!available}
+                      aria-pressed={isSelected}
+                      onClick={() =>
+                        setSelection((current) => ({
+                          ...current,
+                          [attribute.id]: value.id,
+                        }))
+                      }
+                      title={value.value}
+                      className={cn(
+                        "min-h-10 rounded-lg border px-3.5 text-sm transition-colors",
+                        value.hex ? "flex items-center gap-2" : "",
+                        isSelected
+                          ? "border-primary bg-primary-soft text-primary-soft-foreground font-medium"
+                          : "border-border hover:border-muted-foreground/50",
+                        !available &&
+                          "cursor-not-allowed line-through opacity-40 hover:border-border",
+                      )}
+                    >
+                      {value.hex && (
+                        <span
+                          aria-hidden
+                          className="border-border inline-block size-4 rounded-full border"
+                          style={{ backgroundColor: value.hex }}
+                        />
+                      )}
+                      {value.value}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ))}
+
+          <div className="border-border border-t pt-5">
+            <p className="text-muted-foreground text-sm">
+              {selected ? (
+                <>
+                  SKU <span className="font-mono">{selected.sku}</span>
+                </>
+              ) : (
+                "Choose an option to see the price"
+              )}
             </p>
           </div>
-        )}
+
+          {tabs.length > 0 && <Tabs items={tabs} />}
+        </div>
       </div>
+
+      <Lightbox
+        open={zoomed}
+        onClose={() => setZoomed(false)}
+        images={gallery.map((image) => ({
+          id: image.id,
+          url: image.url,
+          alt: image.alt,
+        }))}
+        index={imageIndex}
+        onIndexChange={setRequestedImage}
+      />
+    </>
+  );
+}
+
+function SpecRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[10rem_1fr] gap-4 py-2.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
 
 /** The variant whose combination matches every current selection. */
-function findVariant(variants: Variant[], selection: Record<number, number>): Variant | null {
+function findVariant(
+  variants: Variant[],
+  selection: Record<number, number>,
+): Variant | null {
   const picked = Object.entries(selection);
 
   return (
@@ -219,7 +378,9 @@ function isAvailable(
 
   return variants.some((variant) =>
     Object.entries(hypothetical).every(([id, value]) =>
-      variant.attributes.some((a) => a.attribute_id === Number(id) && a.value_id === value),
+      variant.attributes.some(
+        (a) => a.attribute_id === Number(id) && a.value_id === value,
+      ),
     ),
   );
 }

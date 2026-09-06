@@ -1,4 +1,9 @@
+import { LayoutGrid } from "lucide-react";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Container } from "@/components/ui/container";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StoreImage } from "@/components/ui/store-image";
 import { serverFetch } from "@/lib/server-api";
 import type { CategoryNode } from "@/services/catalog";
 
@@ -14,42 +19,52 @@ export const metadata = {
 };
 
 export default async function CategoriesPage() {
-  const { items } = await serverFetch<{ items: CategoryNode[] }>("/categories", 300);
+  const { items } = await serverFetch<{ items: CategoryNode[] }>(
+    "/categories",
+    300,
+  );
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Categories</h1>
+    <Container className="py-8 lg:py-10">
+      <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Categories" }]} />
+
+      <h1 className="mt-4 mb-8 text-3xl font-bold lg:text-4xl">
+        Shop by category
+      </h1>
 
       {items.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Nothing here yet.</p>
+        <EmptyState
+          icon={LayoutGrid}
+          title="No categories yet"
+          description="This store has not organised its catalogue into categories."
+        />
       ) : (
-        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((category) => (
+        <ul className="grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((category, index) => (
             <li key={category.id}>
               <Link href={`/categories/${category.slug}`} className="group block">
-                <div className="bg-muted aspect-[3/2] overflow-hidden rounded-lg">
-                  {category.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={category.image}
-                      alt=""
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-                      No image
-                    </div>
-                  )}
-                </div>
-                <h2 className="mt-3 font-medium group-hover:underline">{category.name}</h2>
+                <StoreImage
+                  src={category.image}
+                  alt={category.name}
+                  fallbackLabel={category.name}
+                  ratio="landscape"
+                  priority={index < 3}
+                  sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw"
+                  imageClassName="transition-transform duration-[--duration-slow] ease-[--ease-out] group-hover:scale-[1.04]"
+                />
+                <h2 className="group-hover:text-primary mt-3 text-lg font-semibold transition-colors">
+                  {category.name}
+                </h2>
               </Link>
 
               {category.children.length > 0 && (
-                <ul className="text-muted-foreground mt-1 space-y-0.5 text-sm">
+                <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                   {category.children.map((child) => (
                     <li key={child.id}>
-                      <Link href={`/categories/${child.slug}`} className="hover:underline">
+                      <Link
+                        href={`/categories/${child.slug}`}
+                        className="text-muted-foreground hover:text-primary text-sm transition-colors"
+                      >
                         {child.name}
                       </Link>
                     </li>
@@ -60,6 +75,6 @@ export default async function CategoriesPage() {
           ))}
         </ul>
       )}
-    </main>
+    </Container>
   );
 }

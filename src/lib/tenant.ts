@@ -23,12 +23,27 @@ const CENTRAL_HOSTS = new Set(
     .filter(Boolean),
 );
 
+/**
+ * The central hosts a dev server actually binds to.
+ *
+ * A loopback host cannot express a subdomain, which is the whole reason
+ * NEXT_PUBLIC_DEV_TENANT exists — so it is the only place that stand-in may be
+ * applied. `platform.test` *can* express one and genuinely means central:
+ * naming a tenant there would resolve one on the Super Admin Portal's own host,
+ * and RequirePlatform 404s every /platform route the moment a tenant resolves.
+ */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
 export function normalizeHost(host: string): string {
   return host.trim().toLowerCase().split(":")[0].replace(/\.$/, "");
 }
 
 export function isCentralHost(host: string): boolean {
   return CENTRAL_HOSTS.has(normalizeHost(host));
+}
+
+export function isLoopbackHost(host: string): boolean {
+  return LOOPBACK_HOSTS.has(normalizeHost(host));
 }
 
 /**
@@ -39,8 +54,14 @@ export function isCentralHost(host: string): boolean {
 export function tenantFromHost(host: string): string | null {
   const hostname = normalizeHost(host);
 
-  if (!hostname || isCentralHost(hostname)) {
-    return env.devTenant ?? null;
+  if (!hostname) {
+    return null;
+  }
+
+  if (isCentralHost(hostname)) {
+    // Only loopback is ambiguous enough to need the stand-in. Every other
+    // central host means central, exactly as the table above promises.
+    return isLoopbackHost(hostname) ? (env.devTenant ?? null) : null;
   }
 
   const [first, ...rest] = hostname.split(".");
@@ -57,6 +78,35 @@ export function currentTenant(): string | null {
   }
 
   return tenantFromHost(window.location.host);
+}
+
+/** The address a tenant with this subdomain is reachable at. */
+export function tenantHostname(subdomain: string): string {
+  return `${subdomain}.${env.tenantBaseDomain}`;
+}
+
+/**
+ * Browser origin for a tenant's own hostname.
+ *
+ * Tenant hostnames never carry a port — TenantDomain::normalize strips it,
+ * because a port is not part of tenant identity. In development the storefront
+ * answers on :3000, so a link built from the stored hostname alone lands on
+ * port 80 and fails. Only a loopback address needs the port put back; `.localhost`
+ * is the special-use TLD browsers resolve to loopback without a hosts entry.
+ */
+export function tenantOrigin(hostname: string): string {
+  const host = normalizeHost(hostname);
+
+  if (!host) {
+    return "";
+  }
+
+  const location = typeof window === "undefined" ? null : window.location;
+  const protocol = location?.protocol ?? "http:";
+  const port = location?.port ?? "";
+  const isLoopback = isLoopbackHost(host) || host.endsWith(".localhost");
+
+  return `${protocol}//${host}${isLoopback && port ? `:${port}` : ""}`;
 }
 
 /**
