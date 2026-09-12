@@ -3,6 +3,7 @@
 import { LogIn, LogOut, MapPin, Shield, User, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
+import { CartCount } from "@/components/cart/cart-count";
 import { ButtonLink } from "@/components/ui/button";
 import {
   DropdownItem,
@@ -27,6 +28,7 @@ export function HeaderActions() {
   return (
     <div className="flex items-center gap-1">
       <ThemeToggle />
+      <CartCount />
 
       {loading ? (
         // A fixed-size placeholder, not a spinner: the header must not resize
@@ -92,11 +94,20 @@ export function HeaderActions() {
             <LogIn />
             Sign in
           </ButtonLink>
-          <ButtonLink href="/login" variant="ghost" size="icon" className="sm:hidden">
+          <ButtonLink
+            href="/login"
+            variant="ghost"
+            size="icon"
+            className="sm:hidden"
+          >
             <LogIn />
             <span className="sr-only">Sign in</span>
           </ButtonLink>
-          <ButtonLink href="/register" size="sm" className="hidden md:inline-flex">
+          <ButtonLink
+            href="/register"
+            size="sm"
+            className="hidden md:inline-flex"
+          >
             Register
           </ButtonLink>
         </>

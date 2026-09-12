@@ -4,6 +4,7 @@ import { Expand } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Price, PriceTiers } from "@/components/catalog/price";
+import { AddToCart } from "@/components/cart/add-to-cart";
 import { Badge } from "@/components/ui/badge";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { Lightbox } from "@/components/ui/lightbox";
@@ -27,9 +28,10 @@ import type { Product, Variant } from "@/services/catalog";
  * Stock arrived in Phase 7 and is a SIGNAL, never a count — the API does not
  * send a quantity and this component could not display one if it wanted to.
  *
- * Absent on purpose: delivery estimates and add-to-cart. The cart is Phase 8,
- * and a buy button that posts nowhere is exactly the fabricated affordance the
- * storefront rules forbid.
+ * Add-to-cart arrived in Phase 8 and sits under the variant picker, so the
+ * control and the thing it acts on are adjacent.
+ *
+ * Absent on purpose: delivery estimates, which need an address (Phase 14).
  */
 export function ProductDetail({ product }: { product: Product }) {
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
@@ -63,7 +65,10 @@ export function ProductDetail({ product }: { product: Product }) {
       }
     }
 
-    return [...map.values()].map((a) => ({ ...a, values: [...a.values.values()] }));
+    return [...map.values()].map((a) => ({
+      ...a,
+      values: [...a.values.values()],
+    }));
   }, [variants]);
 
   const [selection, setSelection] = useState<Record<number, number>>(() => {
@@ -127,8 +132,13 @@ export function ProductDetail({ product }: { product: Product }) {
       label: "Specifications",
       content: (
         <dl className="max-w-lg divide-border divide-y text-sm">
-          <SpecRow label="SKU" value={<span className="font-mono">{selected.sku}</span>} />
-          {product.brand && <SpecRow label="Brand" value={product.brand.name} />}
+          <SpecRow
+            label="SKU"
+            value={<span className="font-mono">{selected.sku}</span>}
+          />
+          {product.brand && (
+            <SpecRow label="Brand" value={product.brand.name} />
+          )}
           {selected.attributes.map((attribute) => (
             <SpecRow
               key={attribute.attribute_id}
@@ -136,7 +146,9 @@ export function ProductDetail({ product }: { product: Product }) {
               value={attribute.value}
             />
           ))}
-          {selected.weight && <SpecRow label="Weight" value={`${selected.weight} kg`} />}
+          {selected.weight && (
+            <SpecRow label="Weight" value={`${selected.weight} kg`} />
+          )}
         </dl>
       ),
     });
@@ -225,7 +237,9 @@ export function ProductDetail({ product }: { product: Product }) {
               )}
             </div>
 
-            <h1 className="mt-2 text-3xl font-bold lg:text-4xl">{product.name}</h1>
+            <h1 className="mt-2 text-3xl font-bold lg:text-4xl">
+              {product.name}
+            </h1>
 
             {product.short_description && (
               <p className="text-muted-foreground mt-3 max-w-prose">
@@ -240,7 +254,11 @@ export function ProductDetail({ product }: { product: Product }) {
             forbids, whether it is a total or a single unit.
           */}
           <div className="space-y-4">
-            <Price pricing={selected?.pricing} fallback={selected?.price} size="lg" />
+            <Price
+              pricing={selected?.pricing}
+              fallback={selected?.price}
+              size="lg"
+            />
             <PriceTiers tiers={selected?.pricing?.tiers} />
 
             {/*
@@ -324,6 +342,20 @@ export function ProductDetail({ product }: { product: Product }) {
           ))}
 
           <div className="border-border border-t pt-5">
+            {/*
+              Keyed on the variant so switching from a stocked colour to a
+              sold-out one resets the transient "Added" state - otherwise the
+              button would still be showing a tick for a variant the shopper
+              has since moved away from.
+            */}
+            <AddToCart
+              key={selected?.id ?? "none"}
+              variantId={selected?.id ?? null}
+              stockStatus={selected?.stock?.status}
+            />
+          </div>
+
+          <div className="border-border border-t pt-5">
             <p className="text-muted-foreground text-sm">
               {selected ? (
                 <>
@@ -354,13 +386,7 @@ export function ProductDetail({ product }: { product: Product }) {
   );
 }
 
-function SpecRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
+function SpecRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[10rem_1fr] gap-4 py-2.5">
       <dt className="text-muted-foreground">{label}</dt>
@@ -380,7 +406,8 @@ function findVariant(
     variants.find((variant) =>
       picked.every(([attributeId, valueId]) =>
         variant.attributes.some(
-          (a) => a.attribute_id === Number(attributeId) && a.value_id === valueId,
+          (a) =>
+            a.attribute_id === Number(attributeId) && a.value_id === valueId,
         ),
       ),
     ) ?? (picked.length === 0 ? (variants[0] ?? null) : null)

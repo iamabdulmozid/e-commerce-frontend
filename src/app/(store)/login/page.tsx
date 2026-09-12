@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { mergeGuestCartOnLogin } from "@/components/cart/merge-on-login";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Field, FormAlert } from "@/components/ui/field";
@@ -33,6 +34,11 @@ export default function LoginPage() {
       });
 
       setUser(user);
+
+      // Hand over the guest basket before navigating. Never throws - a failed
+      // merge must not make a successful sign-in look broken.
+      await mergeGuestCartOnLogin();
+
       router.push("/account");
     } catch (e) {
       setError(
