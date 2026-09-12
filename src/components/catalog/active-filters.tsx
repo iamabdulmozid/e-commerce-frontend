@@ -8,6 +8,14 @@ import {
 } from "@/lib/catalog-query";
 import type { Brand, CategoryNode } from "@/services/catalog";
 
+/** The boolean filters, and what each one is called on a chip. */
+const FLAG_LABELS: Partial<Record<ListingParam, string>> = {
+  featured: "Featured",
+  new: "New arrivals",
+  bestseller: "Best sellers",
+  flash_sale: "Flash sale",
+};
+
 /**
  * Chips for what is currently filtered, each one a link that removes itself.
  *
@@ -28,7 +36,11 @@ export function ActiveFilters({
   brands: Brand[];
   fixed?: ListingParam[];
 }) {
-  const chips: Array<{ key: ListingParam; label: string; remove: ListingParams }> = [];
+  const chips: Array<{
+    key: ListingParam;
+    label: string;
+    remove: ListingParams;
+  }> = [];
 
   if (active.q) {
     chips.push({
@@ -64,18 +76,11 @@ export function ActiveFilters({
     });
   }
 
-  for (const flag of ["featured", "new", "bestseller"] as const) {
-    if (active[flag]) {
-      chips.push({
-        key: flag,
-        label:
-          flag === "new"
-            ? "New arrivals"
-            : flag === "featured"
-              ? "Featured"
-              : "Best sellers",
-        remove: { [flag]: undefined },
-      });
+  for (const [flag, label] of Object.entries(FLAG_LABELS) as Array<
+    [ListingParam, string]
+  >) {
+    if (active[flag] && !fixed.includes(flag)) {
+      chips.push({ key: flag, label, remove: { [flag]: undefined } });
     }
   }
 

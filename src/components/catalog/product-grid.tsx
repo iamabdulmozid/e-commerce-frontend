@@ -45,7 +45,7 @@ export function ProductGrid({
   return (
     <ul
       className={cn(
-        "grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 xl:grid-cols-4",
+        "grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 sm:gap-5",
         className,
       )}
     >
@@ -63,7 +63,7 @@ export function ProductRail({ products }: { products: Product[] }) {
   if (products.length === 0) return null;
 
   return (
-    <ul className="scrollbar-none -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-4">
+    <ul className="scrollbar-none -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible lg:grid-cols-4">
       {products.map((product, index) => (
         <li
           key={product.id}

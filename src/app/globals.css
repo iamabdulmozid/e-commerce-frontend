@@ -18,67 +18,129 @@
 
 :root {
   /* --- surfaces ------------------------------------------------------- */
-  /* Warm off-white rather than pure white: product photography sits on it
-     without the page reading as a lightbox. */
-  --background: oklch(0.994 0.002 106);
-  --foreground: oklch(0.21 0.02 260);
+  /*
+   * One neutral family, hue 75 — a warm stone. Surfaces and ink share it, so
+   * greys never argue with each other. (They used to: surfaces sat at hue 106
+   * and text at hue 260, which is a warm page under cool type, and it reads
+   * faintly muddy without ever looking obviously wrong.)
+   *
+   * The page is a real off-white, not a whisper of one. The old ground was
+   * L=0.994 against L=1.0 cards — six thousandths apart, so nothing ever lifted
+   * off anything and the whole layout leaned on hairlines. Cards, the header
+   * and the popovers are pure white and now genuinely float above the page.
+   */
+  --background: oklch(0.974 0.004 75);
+  --foreground: oklch(0.22 0.012 75);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.02 260);
+  --card-foreground: oklch(0.22 0.012 75);
 
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.02 260);
+  --popover-foreground: oklch(0.22 0.012 75);
 
-  --muted: oklch(0.968 0.004 106);
-  --muted-foreground: oklch(0.5 0.02 260);
+  /* Image wells and quiet fills — below the page, so a product photo sits in
+     a dip rather than on a bump. */
+  --muted: oklch(0.951 0.005 75);
+  --muted-foreground: oklch(0.52 0.014 75);
 
-  --border: oklch(0.912 0.005 106);
-  --input: oklch(0.912 0.005 106);
+  /*
+   * Two weights, because they do different jobs.
+   *
+   * `border` is decorative — a card already separates itself by lifting, so
+   * its hairline only needs to whisper. At the old L=0.912 every one of them
+   * drew itself and a grid of cards read as a spreadsheet.
+   *
+   * `input` is not decorative: WCAG 1.4.11 wants 3:1 for anything that marks
+   * out an interactive control, and a form field's edge is the whole of what
+   * says "type here". Measured 3.37:1 on a card and 3.12:1 on the page. Most
+   * design systems ship about 1.3:1 here and quietly fail; a field you can
+   * actually find is worth the slightly firmer line.
+   */
+  --border: oklch(0.925 0.005 75);
+  --input: oklch(0.64 0.01 75);
 
   /* --- brand ---------------------------------------------------------- */
-  --primary: oklch(0.6 0.13 163);
-  --primary-foreground: oklch(0.985 0.01 160);
-  --primary-hover: oklch(0.55 0.13 163);
+  /*
+   * A deeper emerald than the old L=0.6, which measured 3.4:1 on white and so
+   * failed AA everywhere it was used as link or label text — and it was used
+   * that way in the nav, the section headers and the brand eyebrow. Deepening
+   * it fixes the contrast and, as a bonus, reads as considered rather than
+   * bright.
+   */
+  --primary: oklch(0.52 0.113 166);
+  --primary-foreground: oklch(0.99 0.012 166);
+  --primary-hover: oklch(0.45 0.1 166);
   /* Tinted fill for quiet badges and active filter chips. */
-  --primary-soft: oklch(0.955 0.03 163);
-  --primary-soft-foreground: oklch(0.43 0.1 163);
+  --primary-soft: oklch(0.955 0.028 166);
+  --primary-soft-foreground: oklch(0.41 0.09 166);
 
-  /* Sale, discount, urgency. Amber earns attention without the alarm of red,
-     which is reserved for destructive actions.
+  /*
+   * Sale, discount, urgency. Amber earns attention without the alarm of red,
+   * which is reserved for destructive actions.
+   *
+   * Named `sale` rather than `accent`: `--accent` is already the neutral hover
+   * fill the admin and portal screens are built on, and repurposing it would
+   * paint every admin row hover amber.
+   */
+  --sale: oklch(0.79 0.155 72);
+  --sale-foreground: oklch(0.26 0.06 62);
+  --sale-soft: oklch(0.962 0.04 78);
 
-     Named `sale` rather than `accent`: `--accent` is already the neutral
-     hover fill the admin and portal screens are built on, and repurposing it
-     would paint every admin row hover amber. */
-  --sale: oklch(0.79 0.16 78);
-  --sale-foreground: oklch(0.25 0.05 78);
-  --sale-soft: oklch(0.96 0.04 85);
+  /*
+   * The flash-sale band: the same amber, deep enough to be a GROUND rather
+   * than a fill.
+   *
+   * `--sale` is L=0.79. It is right for a chip and impossible for a panel —
+   * white text on it fails contrast, and the white product tiles that sit on
+   * the band would dissolve into it. So the band keeps the hue and drops the
+   * lightness, and `--sale` comes back as the glow and the button on top of
+   * it, where it now has somewhere dark to be bright against.
+   *
+   * Deliberately not red. Red is reserved for destructive actions, and a
+   * storefront promotion is not a warning.
+   */
+  --sale-band: oklch(0.31 0.072 58);
+  --sale-band-accent: oklch(0.43 0.108 70);
+  --sale-band-foreground: oklch(0.98 0.016 78);
 
   /* Neutral hover / active fill. */
-  --accent: oklch(0.962 0.004 106);
-  --accent-foreground: oklch(0.21 0.02 260);
+  --accent: oklch(0.955 0.006 75);
+  --accent-foreground: oklch(0.22 0.012 75);
 
   /* --- status --------------------------------------------------------- */
-  --success: oklch(0.62 0.15 150);
-  --success-foreground: oklch(0.985 0.01 150);
-  --success-soft: oklch(0.955 0.04 150);
+  /* The strong tones double as text on their own soft fills, so each is dark
+     enough to carry a sentence rather than only tint a chip. */
+  --success: oklch(0.51 0.125 155);
+  --success-foreground: oklch(0.99 0.01 155);
+  --success-soft: oklch(0.955 0.035 155);
 
-  --warning: oklch(0.75 0.15 70);
-  --warning-foreground: oklch(0.25 0.05 70);
-  --warning-soft: oklch(0.96 0.05 80);
+  --warning: oklch(0.7 0.13 68);
+  --warning-foreground: oklch(0.32 0.07 60);
+  --warning-soft: oklch(0.962 0.045 78);
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --destructive-soft: oklch(0.96 0.03 27);
+  --destructive: oklch(0.54 0.2 27);
+  --destructive-foreground: oklch(0.99 0.01 27);
+  --destructive-soft: oklch(0.962 0.03 27);
 
-  --ring: oklch(0.6 0.13 163);
+  --ring: oklch(0.52 0.113 166);
 
   /* --- shape ---------------------------------------------------------- */
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
-  /* Two soft steps instead of Tailwind's ladder: its shadows are tuned for a
-     cool grey UI and go muddy over a warm surface. */
-  --shadow-card: 0 1px 2px oklch(0.21 0.02 260 / 4%), 0 4px 16px oklch(0.21 0.02 260 / 6%);
-  --shadow-pop: 0 2px 6px oklch(0.21 0.02 260 / 6%), 0 16px 40px oklch(0.21 0.02 260 / 12%);
+  /*
+   * Warm-keyed and three-layered. The old pair was cool (hue 260) over warm
+   * surfaces — the comment complained about exactly that and then did it — and
+   * each was a single wide blur, which greys a card rather than lifting it.
+   *
+   * Real shadows are a tight contact edge plus a wide ambient falloff, so
+   * that is what these are.
+   */
+  --shadow-card:
+    0 1px 2px oklch(0.22 0.012 75 / 5%), 0 2px 6px oklch(0.22 0.012 75 / 4%),
+    0 8px 20px oklch(0.22 0.012 75 / 5%);
+  --shadow-pop:
+    0 2px 4px oklch(0.22 0.012 75 / 6%), 0 8px 18px oklch(0.22 0.012 75 / 8%),
+    0 24px 48px oklch(0.22 0.012 75 / 10%);
 
   /* --- layout --------------------------------------------------------- */
   --container: 80rem;
@@ -106,18 +168,30 @@
   --muted-foreground: oklch(0.7 0.02 260);
 
   --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
+  /* Same reasoning as the light theme: a field's edge has to be findable, so
+     it is much stronger than a decorative hairline. */
+  --input: oklch(1 0 0 / 38%);
 
-  /* Lightened so it still clears 4.5:1 against a dark card. */
-  --primary: oklch(0.72 0.14 163);
-  --primary-foreground: oklch(0.18 0.03 163);
-  --primary-hover: oklch(0.78 0.14 163);
-  --primary-soft: oklch(0.3 0.05 163);
-  --primary-soft-foreground: oklch(0.85 0.1 163);
+  /* Lightened so it still clears 4.5:1 against a dark card. Dark inverts the
+     light theme's move: there the brand had to go DOWN to carry text on white,
+     here it has to come UP. Same hue, opposite direction. */
+  --primary: oklch(0.74 0.13 166);
+  --primary-foreground: oklch(0.18 0.03 166);
+  --primary-hover: oklch(0.8 0.12 166);
+  --primary-soft: oklch(0.3 0.05 166);
+  --primary-soft-foreground: oklch(0.86 0.1 166);
 
-  --sale: oklch(0.82 0.15 78);
-  --sale-foreground: oklch(0.22 0.05 78);
-  --sale-soft: oklch(0.32 0.06 78);
+  --sale: oklch(0.82 0.15 74);
+  --sale-foreground: oklch(0.22 0.05 62);
+  --sale-soft: oklch(0.32 0.06 74);
+
+  /* Barely moved, and on purpose. The band is a dark warm ground in both
+     themes, so it is one of the few surfaces that does not need to invert —
+     it only has to stay clear of the slate page behind it, which it does by
+     hue rather than by lightness. */
+  --sale-band: oklch(0.29 0.068 58);
+  --sale-band-accent: oklch(0.38 0.098 70);
+  --sale-band-foreground: oklch(0.97 0.015 78);
 
   --accent: oklch(0.272 0.018 260);
   --accent-foreground: oklch(0.97 0.005 260);
@@ -134,10 +208,14 @@
   --destructive-foreground: oklch(0.98 0.01 22);
   --destructive-soft: oklch(0.32 0.08 22);
 
-  --ring: oklch(0.72 0.14 163);
+  --ring: oklch(0.74 0.13 166);
 
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 30%), 0 4px 16px oklch(0 0 0 / 35%);
-  --shadow-pop: 0 2px 6px oklch(0 0 0 / 35%), 0 16px 40px oklch(0 0 0 / 45%);
+  --shadow-card:
+    0 1px 2px oklch(0 0 0 / 30%), 0 2px 6px oklch(0 0 0 / 24%),
+    0 8px 20px oklch(0 0 0 / 30%);
+  --shadow-pop:
+    0 2px 4px oklch(0 0 0 / 34%), 0 8px 18px oklch(0 0 0 / 36%),
+    0 24px 48px oklch(0 0 0 / 44%);
 }
 
 @theme inline {
@@ -162,6 +240,9 @@
   --color-sale: var(--sale);
   --color-sale-foreground: var(--sale-foreground);
   --color-sale-soft: var(--sale-soft);
+  --color-sale-band: var(--sale-band);
+  --color-sale-band-accent: var(--sale-band-accent);
+  --color-sale-band-foreground: var(--sale-band-foreground);
 
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
@@ -203,7 +284,7 @@
   html {
     scroll-behavior: smooth;
     /* The sticky header must not cover an anchored heading. */
-    scroll-padding-top: 6rem;
+    scroll-padding-top: 8rem;
   }
 
   body {

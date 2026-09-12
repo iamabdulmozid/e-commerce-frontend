@@ -47,6 +47,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       // which is the whole point of it - so the mismatch it creates is
       // expected rather than a bug worth warning about.
       suppressHydrationWarning
+      // globals.css sets `scroll-behavior: smooth` so in-page anchors glide.
+      // Without this attribute the router inherits that for route changes too,
+      // and a navigation animates its scroll instead of jumping — which reads
+      // as "the link did nothing" on a long page. Declaring it hands the
+      // router back control of transition scrolling while anchors keep the
+      // smooth behaviour.
+      data-scroll-behavior="smooth"
       className={`${inter.variable} ${plusJakarta.variable} ${geistMono.variable} h-full`}
     >
       <head>

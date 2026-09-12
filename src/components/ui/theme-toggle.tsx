@@ -1,7 +1,6 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
-import { useEffect } from "react";
+import { Moon, Sun } from "lucide-react";
 import {
   THEME_STORAGE_KEY,
   type ThemePreference,
@@ -9,80 +8,53 @@ import {
 import { useStoredValue, writeStored } from "@/lib/browser-store";
 import { cn } from "@/lib/utils";
 
-const ORDER: ThemePreference[] = ["system", "light", "dark"];
-
 const LABELS: Record<ThemePreference, string> = {
-  system: "Match system theme",
-  light: "Light theme",
-  dark: "Dark theme",
+  light: "Switch to dark theme",
+  dark: "Switch to light theme",
 };
-
-const ICONS: Record<ThemePreference, typeof Sun> = {
-  system: Monitor,
-  light: Sun,
-  dark: Moon,
-};
-
-function apply(preference: ThemePreference) {
-  const dark =
-    preference === "dark" ||
-    (preference === "system" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  document.documentElement.classList.toggle("dark", dark);
-  document.documentElement.style.colorScheme = dark ? "dark" : "light";
-}
 
 /**
- * Cycles system -> light -> dark.
+ * Light by default, dark on request.
  *
- * "System" is a real third state, not a default that disappears the moment you
- * touch the control: a shopper whose laptop turns dark at sunset should see
- * the shop turn dark too, and that is only possible if the preference is
- * allowed to stay unset.
+ * Two states, not three: the "system" option is gone because the shop no
+ * longer follows the visitor's OS at all — see the note on `ThemePreference`.
+ * A control that offered "match system" while the page ignored the system
+ * would be lying about what it does.
  *
- * The theme itself is applied by the inline script in <head> long before this
+ * The theme itself is applied by the inline boot script long before this
  * component exists; this only reads and writes the stored preference.
  */
 export function ThemeToggle({ className }: { className?: string }) {
   const stored = useStoredValue(THEME_STORAGE_KEY);
+
+  // `undefined` means the server is rendering, where localStorage cannot be
+  // read. Light is the default, so assuming it here is also the truth.
   const known = stored !== undefined;
-  const preference = (known ? (stored as ThemePreference | null) : null) ?? "system";
-
-  // While the preference is "system", the OS can still change under us. This
-  // is a subscription, which is what effects are for.
-  useEffect(() => {
-    if (preference !== "system") return;
-
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => apply("system");
-
-    media.addEventListener("change", onChange);
-
-    return () => media.removeEventListener("change", onChange);
-  }, [preference]);
-
-  const Icon = ICONS[preference];
+  const theme: ThemePreference = stored === "dark" ? "dark" : "light";
 
   return (
     <button
       type="button"
       onClick={() => {
-        const next = ORDER[(ORDER.indexOf(preference) + 1) % ORDER.length];
+        const next: ThemePreference = theme === "dark" ? "light" : "dark";
 
-        writeStored(THEME_STORAGE_KEY, next === "system" ? null : next);
-        apply(next);
+        writeStored(THEME_STORAGE_KEY, next === "dark" ? "dark" : null);
+        document.documentElement.classList.toggle("dark", next === "dark");
+        document.documentElement.style.colorScheme = next;
       }}
-      title={LABELS[preference]}
-      aria-label={LABELS[preference]}
+      title={LABELS[theme]}
+      aria-label={LABELS[theme]}
+      aria-pressed={theme === "dark"}
       className={cn(
         "text-muted-foreground hover:bg-accent hover:text-foreground inline-flex size-10 items-center justify-center rounded-full transition-colors",
         className,
       )}
     >
-      {/* Invisible until the stored preference is readable, so the icon never
-          contradicts the theme already painted on screen. */}
-      <Icon className={cn("size-5", !known && "opacity-0")} />
+      {theme === "dark" ? (
+        <Moon className={cn("size-5", !known && "opacity-0")} />
+      ) : (
+        <Sun className={cn("size-5", !known && "opacity-0")} />
+      )}
     </button>
   );
 }

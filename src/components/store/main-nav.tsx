@@ -63,7 +63,18 @@ export function MainNav({ categories }: { categories: CategoryNode[] }) {
     <nav
       ref={navRef}
       aria-label="Categories"
-      className="hidden items-center gap-1 lg:flex"
+      /*
+       * Its own row now, so it is `flex` rather than `hidden lg:flex` — the
+       * wrapper in SiteHeader decides when the row exists at all.
+       *
+       * `flex-wrap` and not `overflow-x-auto`: a scrolling nav would clip the
+       * flyouts, which are absolutely positioned children. A store with more
+       * categories than fit gets a second line, which is ugly but never hides
+       * anything. `justify-center` centres the row; the symmetric `-mx-3`
+       * cancels the outermost links' own padding on both sides, so the visual
+       * centre matches the container's.
+       */
+      className="-mx-3 flex flex-wrap items-center justify-center gap-1 py-1.5"
     >
       <NavLink href="/products" active={pathname === "/products"} onClick={close}>
         All products

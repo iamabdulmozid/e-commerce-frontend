@@ -67,7 +67,7 @@ export default function AccountLayout({
         </header>
 
         <div className="grid gap-8 lg:grid-cols-[14rem_1fr]">
-          <nav aria-label="Account" className="lg:sticky lg:top-28 lg:self-start">
+          <nav aria-label="Account" className="lg:sticky lg:top-32 lg:self-start">
             <ul className="scrollbar-none flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
               {NAV.map((item) => {
                 const active = pathname === item.href;

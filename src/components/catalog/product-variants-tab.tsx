@@ -199,9 +199,21 @@ function MatrixGenerator({ product, onRun }: { product: Product; onRun: Runner }
     catalogService.admin.attributes(true),
   );
 
-  const total = Object.values(picked)
-    .filter((v) => v.length > 0)
-    .reduce((acc, v) => acc * v.length, 1);
+  // Groups actually chosen. One group of one value is a legitimate matrix -
+  // "256 GB" on its own is a variant - so the reduce below only ever runs over
+  // non-empty groups and an empty selection is caught by its own check.
+  const groups = Object.values(picked).filter((v) => v.length > 0);
+  const total = groups.length === 0 ? 0 : groups.reduce((acc, v) => acc * v.length, 1);
+
+  // Combinations already on the product, keyed the way the backend keys them
+  // (value ids, sorted, joined) so the preview here matches what it will skip.
+  const existing = new Set(
+    (product.variants ?? [])
+      .filter((variant) => variant.attributes.length > 0)
+      .map((variant) => keyFor(variant.attributes.map((attribute) => attribute.value_id))),
+  );
+
+  const fresh = combinations(groups).filter((ids) => !existing.has(keyFor(ids))).length;
 
   if (!open) {
     return (
@@ -274,8 +286,11 @@ function MatrixGenerator({ product, onRun }: { product: Product; onRun: Runner }
 
       <div className="flex items-center justify-between border-t pt-4">
         <p className="text-muted-foreground text-sm">
-          {total > 1 ? `${total} combination(s)` : "Pick at least one option"}
-          {" · existing combinations are skipped"}
+          {total === 0
+            ? "Pick at least one option"
+            : fresh === 0
+              ? `${total} combination(s) · all of them already exist`
+              : `${total} combination(s) · ${fresh} new, ${total - fresh} already exist`}
         </p>
 
         <div className="flex gap-2">
@@ -284,7 +299,7 @@ function MatrixGenerator({ product, onRun }: { product: Product; onRun: Runner }
           </Button>
           <Button
             loading={saving}
-            disabled={total <= 1}
+            disabled={total === 0 || fresh === 0}
             onClick={async () => {
               setSaving(true);
 
@@ -315,5 +330,23 @@ function MatrixGenerator({ product, onRun }: { product: Product; onRun: Runner }
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Same key the backend builds (App\Models\ProductVariant::keyFor): value ids
+ * sorted then joined, so {Black, M} and {M, Black} are one combination.
+ */
+function keyFor(valueIds: number[]): string {
+  return [...valueIds].sort((a, b) => a - b).join("-");
+}
+
+/** Cartesian product of the picked value groups. */
+function combinations(groups: number[][]): number[][] {
+  if (groups.length === 0) return [];
+
+  return groups.reduce<number[][]>(
+    (acc, group) => acc.flatMap((combination) => group.map((id) => [...combination, id])),
+    [[]],
   );
 }

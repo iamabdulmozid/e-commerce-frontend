@@ -16,6 +16,7 @@ const NAV = [
   { href: "/admin/brands", label: "Brands", permission: "brand.view" },
   { href: "/admin/attributes", label: "Attributes", permission: "product.view" },
   { href: "/admin/price-rules", label: "Price rules", permission: "price.view" },
+  { href: "/admin/inventory", label: "Inventory", permission: "inventory.view" },
   { href: "/admin/media", label: "Media", permission: "media.upload" },
   { href: "/admin/customers", label: "Customers", permission: "customer.view" },
   { href: "/admin/users", label: "Users", permission: "user.manage" },

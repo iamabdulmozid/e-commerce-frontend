@@ -1,6 +1,9 @@
 import { ArrowRight, LayoutGrid, PackageSearch, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { BrandTile } from "@/components/catalog/brand-tile";
+import { HeroCarousel } from "@/components/catalog/hero-carousel";
 import { ProductRail } from "@/components/catalog/product-grid";
+import { FlashSaleBand } from "@/components/store/flash-sale-band";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,20 +13,27 @@ import { StoreUnavailable } from "@/components/ui/store-unavailable";
 import { ApiError } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
 import { loadStoreName } from "@/lib/store-nav";
-import type { Brand, CategoryNode, Product } from "@/services/catalog";
+import type {
+  Brand,
+  CategoryNode,
+  FlashSale,
+  Product,
+} from "@/services/catalog";
 import type { Paginated } from "@/types/auth";
 
 /**
  * The storefront home page.
  *
- * Composed entirely from what the store actually has: the hero borrows the
- * first featured product's photograph, the bands come from the `featured`,
+ * Composed entirely from what the store actually has: the hero rotates through
+ * the store's own featured photography, the bands come from the `featured`,
  * `new` and `bestseller` flags a merchant sets in the admin, and a band with
  * no products does not render at all (PRD 5B rule 9).
  *
- * There is no promotional banner, no countdown and no "free delivery" strip.
- * Promotions are Phase 6 and delivery is Phase 14; hardcoding either would put
- * a claim on a real merchant's shop that the merchant never made.
+ * The one merchandising band is the flash sale, and it is not hardcoded: it
+ * comes from the price rules the merchant actually set, carries the deadline
+ * those rules actually have, and does not render at all when nothing is on a
+ * timed offer. There is still no "free delivery" strip — delivery is Phase 14,
+ * and a claim the merchant never made has no business on their shop.
  */
 
 export const metadata = {
@@ -33,26 +43,40 @@ export const metadata = {
 interface HomeData {
   categories: CategoryNode[];
   brands: Brand[];
+  flashSale: FlashSale;
   featured: Product[];
   fresh: Product[];
   bestsellers: Product[];
 }
 
+// The sale's own revalidate window is short: everything else on this page is
+// merchandising that changes when the merchant edits it, but this band expires
+// on a clock, and serving it from a five-minute cache would leave an ended
+// sale on the front page.
+const SALE_REVALIDATE = 30;
+
+// Enough rotation to be worth having, few enough that a shopper reaches the
+// end before losing interest.
+const HERO_SLIDES = 5;
+
 async function loadHome(): Promise<HomeData | { unavailable: string }> {
   try {
     // One round of parallel reads: the bands are independent, and serialising
     // them would make the page as slow as their sum.
-    const [categories, brands, featured, fresh, bestsellers] = await Promise.all([
-      serverFetch<{ items: CategoryNode[] }>("/categories", 300),
-      serverFetch<{ items: Brand[] }>("/brands", 300),
-      serverFetch<Paginated<Product>>("/products?featured=1&per_page=8"),
-      serverFetch<Paginated<Product>>("/products?new=1&per_page=8"),
-      serverFetch<Paginated<Product>>("/products?bestseller=1&per_page=8"),
-    ]);
+    const [categories, brands, flashSale, featured, fresh, bestsellers] =
+      await Promise.all([
+        serverFetch<{ items: CategoryNode[] }>("/categories", 300),
+        serverFetch<{ items: Brand[] }>("/brands", 300),
+        serverFetch<FlashSale>("/flash-sale", SALE_REVALIDATE),
+        serverFetch<Paginated<Product>>("/products?featured=1&per_page=8"),
+        serverFetch<Paginated<Product>>("/products?new=1&per_page=8"),
+        serverFetch<Paginated<Product>>("/products?bestseller=1&per_page=8"),
+      ]);
 
     return {
       categories: categories.items,
       brands: brands.items,
+      flashSale,
       featured: featured.items,
       fresh: fresh.items,
       bestsellers: bestsellers.items,
@@ -75,13 +99,20 @@ export default async function StoreHomePage() {
     return <StoreUnavailable code={data.unavailable} />;
   }
 
-  const { categories, brands, featured, fresh, bestsellers } = data;
-  const heroProduct = featured[0] ?? fresh[0] ?? bestsellers[0];
-  const hasAnything = Boolean(heroProduct) || categories.length > 0;
+  const { categories, brands, flashSale, featured, fresh, bestsellers } = data;
+  // The hero shows what the merchant chose to feature. A store that has
+  // featured nothing yet still gets a picture rather than a grey box, so the
+  // newest or best-selling product stands in — one of it, not a slideshow of
+  // products nobody nominated.
+  const heroProducts =
+    featured.length > 0
+      ? featured.slice(0, HERO_SLIDES)
+      : [fresh[0] ?? bestsellers[0]].filter((p) => p !== undefined);
+  const hasAnything = heroProducts.length > 0 || categories.length > 0;
 
   return (
     <>
-      <Hero storeName={storeName} product={heroProduct} />
+      <Hero storeName={storeName} products={heroProducts} />
 
       {!hasAnything && (
         <Container className="py-24">
@@ -104,6 +135,12 @@ export default async function StoreHomePage() {
         </Container>
       )}
 
+      {/* Above the merchandising bands, and directly under the categories:
+          it is the only thing on this page with a deadline, so it goes where
+          it is seen before a shopper has scrolled past three rails. Renders
+          nothing when no sale is running. */}
+      <FlashSaleBand sale={flashSale} />
+
       <ProductBand
         eyebrow="Handpicked"
         title="Featured products"
@@ -116,6 +153,7 @@ export default async function StoreHomePage() {
         title="New arrivals"
         href="/products?new=1"
         products={fresh}
+        tone="card"
       />
 
       <ProductBand
@@ -127,7 +165,11 @@ export default async function StoreHomePage() {
 
       {brands.length > 0 && (
         <Container className="pt-14 pb-4">
-          <SectionHeader eyebrow="Labels" title="Shop by brand" href="/brands" />
+          <SectionHeader
+            eyebrow="Labels"
+            title="Shop by brand"
+            href="/brands"
+          />
           <BrandStrip brands={brands} />
         </Container>
       )}
@@ -137,13 +179,19 @@ export default async function StoreHomePage() {
 
 function Hero({
   storeName,
-  product,
+  products,
 }: {
   storeName: string;
-  product: Product | undefined;
+  products: Product[];
 }) {
   return (
-    <section className="from-primary-soft via-background to-background bg-linear-to-br">
+    <section className="from-primary-soft via-background to-background relative overflow-hidden bg-linear-to-br">
+      {/* A soft off-centre glow so the hero has a light source instead of a
+          flat wash. Decorative and behind everything. */}
+      <div
+        aria-hidden
+        className="bg-primary/10 pointer-events-none absolute -top-40 -right-32 -z-10 size-[36rem] rounded-full blur-3xl"
+      />
       <Container className="grid items-center gap-10 py-16 lg:grid-cols-2 lg:py-24">
         <div>
           <p className="text-primary inline-flex items-center gap-2 text-xs font-semibold tracking-[0.14em] uppercase">
@@ -172,29 +220,10 @@ function Hero({
           </div>
         </div>
 
-        {/* The hero image is the store's own photography, not stock art baked
-            into the theme — a shop should look like itself. */}
-        <div className="relative">
-          <StoreImage
-            src={product?.primary_image?.url}
-            alt={product?.primary_image?.alt ?? storeName}
-            fallbackLabel={storeName}
-            ratio="landscape"
-            priority
-            sizes="(min-width: 1024px) 45vw, 100vw"
-            className="shadow-pop rounded-2xl"
-          />
-
-          {product && (
-            <Link
-              href={`/products/${product.slug}`}
-              className="bg-card/95 shadow-pop hover:bg-card absolute bottom-4 left-4 max-w-[80%] rounded-xl px-4 py-3 text-sm backdrop-blur transition-colors"
-            >
-              <p className="text-muted-foreground text-xs">Featured</p>
-              <p className="truncate font-medium">{product.name}</p>
-            </Link>
-          )}
-        </div>
+        {/* The hero images are the store's own photography, not stock art baked
+            into the theme — a shop should look like itself. Every featured
+            product gets its turn instead of only whichever one sorted first. */}
+        <HeroCarousel products={products} storeName={storeName} />
       </Container>
     </section>
   );
@@ -226,48 +255,53 @@ function CategoryTiles({ categories }: { categories: CategoryNode[] }) {
 
 function BrandStrip({ brands }: { brands: Brand[] }) {
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
       {brands.slice(0, 12).map((brand) => (
         <li key={brand.id}>
-          <Link
-            href={`/brands/${brand.slug}`}
-            className="border-border hover:border-primary/40 hover:bg-accent flex h-24 flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition-colors"
-          >
-            {brand.logo?.thumb_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={brand.logo.thumb_url}
-                alt=""
-                loading="lazy"
-                className="h-8 w-auto max-w-full object-contain"
-              />
-            )}
-            <span className="truncate text-sm font-medium">{brand.name}</span>
-          </Link>
+          <BrandTile brand={brand} className="h-24" />
         </li>
       ))}
     </ul>
   );
 }
 
+/**
+ * A band of products.
+ *
+ * `tone` alternates the full-bleed ground between the page and white. A long
+ * page of identical bands on one colour reads as a list; alternating gives the
+ * eye somewhere to rest and makes each section feel deliberate. The white
+ * bands are also where the product tiles stop lifting and sit flush, which is
+ * a pleasant change of texture rather than a bug.
+ */
 function ProductBand({
   eyebrow,
   title,
   href,
   products,
+  tone = "page",
 }: {
   eyebrow: string;
   title: string;
   href: string;
   products: Product[];
+  tone?: "page" | "card";
 }) {
   // PRD 5B rule 9: a heading over nothing is worse than no section at all.
   if (products.length === 0) return null;
 
   return (
-    <Container className="pt-14">
-      <SectionHeader eyebrow={eyebrow} title={title} href={href} />
-      <ProductRail products={products} />
-    </Container>
+    <section
+      className={
+        tone === "card"
+          ? "bg-card border-border/60 my-14 border-y py-14"
+          : "pt-14"
+      }
+    >
+      <Container>
+        <SectionHeader eyebrow={eyebrow} title={title} href={href} />
+        <ProductRail products={products} />
+      </Container>
+    </section>
   );
 }

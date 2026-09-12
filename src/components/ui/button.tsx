@@ -26,10 +26,14 @@ const button = cva(
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        // The shadow is what makes a primary action read as a raised control
+        // rather than a coloured rectangle — worth it on the one element per
+        // screen that is asking to be pressed.
+        primary:
+          "bg-primary text-primary-foreground hover:bg-primary-hover shadow-card",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-accent border border-border",
-        outline: "border border-border bg-transparent hover:bg-accent",
+        outline: "border border-input bg-card hover:bg-accent",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         destructive:
           "bg-destructive text-destructive-foreground hover:opacity-90",

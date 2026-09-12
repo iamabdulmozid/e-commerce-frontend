@@ -23,14 +23,19 @@ export function Skeleton({
   );
 }
 
-/** A product card's shape, used by every listing's loading state. */
+/**
+ * A product card's shape — the same tile, padding and radii the real card
+ * uses, so the grid does not visibly reflow the moment data lands.
+ */
 export function ProductCardSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="border-border/70 bg-card shadow-card rounded-2xl border p-3">
       <Skeleton className="aspect-square w-full rounded-xl" />
-      <Skeleton className="h-3 w-16" />
-      <Skeleton className="h-4 w-4/5" />
-      <Skeleton className="h-4 w-24" />
+      <div className="space-y-2 px-1 pt-3.5 pb-1">
+        <Skeleton className="h-2.5 w-16" />
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-4 w-24" />
+      </div>
     </div>
   );
 }
@@ -38,7 +43,7 @@ export function ProductCardSkeleton() {
 export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div
-      className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-4"
       role="status"
       aria-label="Loading products"
     >

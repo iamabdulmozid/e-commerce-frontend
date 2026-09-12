@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Price, PriceTiers } from "@/components/catalog/price";
 import { Badge } from "@/components/ui/badge";
+import { StockBadge } from "@/components/inventory/stock-badge";
 import { Lightbox } from "@/components/ui/lightbox";
 import { StoreImage } from "@/components/ui/store-image";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
@@ -23,9 +24,12 @@ import type { Product, Variant } from "@/services/catalog";
  * not made in L"); one who finds L silently missing just thinks the page is
  * broken.
  *
- * Absent on purpose: stock, delivery estimates and add-to-cart. Inventory is
- * Phase 7 and the cart is Phase 8 — and a guess about availability is the one
- * thing a storefront must never make (engineering rule 3).
+ * Stock arrived in Phase 7 and is a SIGNAL, never a count — the API does not
+ * send a quantity and this component could not display one if it wanted to.
+ *
+ * Absent on purpose: delivery estimates and add-to-cart. The cart is Phase 8,
+ * and a buy button that posts nowhere is exactly the fabricated affordance the
+ * storefront rules forbid.
  */
 export function ProductDetail({ product }: { product: Product }) {
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
@@ -142,7 +146,7 @@ export function ProductDetail({ product }: { product: Product }) {
     <>
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
         {/* --- gallery -------------------------------------------------- */}
-        <div className="lg:sticky lg:top-28 lg:self-start">
+        <div className="lg:sticky lg:top-32 lg:self-start">
           <div className="group relative">
             <StoreImage
               src={current?.url}
@@ -150,7 +154,10 @@ export function ProductDetail({ product }: { product: Product }) {
               fallbackLabel={product.name}
               priority
               sizes="(min-width: 1024px) 45vw, 100vw"
-              className="rounded-2xl"
+              // Same reason as the card: the shopper is here to look at the
+              // whole product, so nothing may be cropped away.
+              fit="contain"
+              className="rounded-2xl p-3"
             />
 
             {current && (
@@ -186,7 +193,7 @@ export function ProductDetail({ product }: { product: Product }) {
                     src={image.thumb_url}
                     alt=""
                     loading="lazy"
-                    className="size-full object-cover"
+                    className="size-full object-contain p-1"
                   />
                 </button>
               ))}
@@ -235,6 +242,22 @@ export function ProductDetail({ product }: { product: Product }) {
           <div className="space-y-4">
             <Price pricing={selected?.pricing} fallback={selected?.price} size="lg" />
             <PriceTiers tiers={selected?.pricing?.tiers} />
+
+            {/*
+              Shown against the SELECTED variant, not the product: "Only a few
+              left" is true of one colour and false of another, and the badge
+              has to follow the picker or it is a lie half the time.
+            */}
+            {selected?.stock && (
+              <div className="flex items-center gap-2">
+                <StockBadge status={selected.stock.status} size="md" />
+                {selected.stock.status === "out_of_stock" && (
+                  <span className="text-muted-foreground text-sm">
+                    This option is not available right now.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {attributes.map((attribute) => (

@@ -1,5 +1,5 @@
 import { env } from "./env";
-import { tenantHeaders } from "./tenant";
+import { isLoopbackHost, tenantHeaders } from "./tenant";
 
 /**
  * Typed client for the Laravel API. Understands the standard envelope:
@@ -109,8 +109,52 @@ export class ApiError extends Error {
   }
 }
 
-const apiOrigin = new URL(env.apiUrl).origin;
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * The API base URL as the BROWSER must call it.
+ *
+ * Sanctum's SPA mode is a cookie handshake, and cookies are scoped by HOST —
+ * ports are not part of a cookie's identity, but hostnames are. A page served
+ * from `demo.localhost:3000` that calls the API at `localhost:8000` therefore
+ * cannot see the XSRF-TOKEN cookie the API just set: `document.cookie` on
+ * `demo.localhost` never shows a `localhost` cookie, so the CSRF header can
+ * never be built and every write fails with "CSRF token mismatch".
+ *
+ * Calling the API on the page's own hostname fixes it, because the cookie is
+ * then set for that hostname and the differing port does not matter. It is
+ * also what production already does — one hostname, SPA and API behind it —
+ * so this only ever adjusts a development configuration.
+ *
+ * Deliberately narrow: the rewrite applies only when the configured API host
+ * is loopback, which is by definition a local setup. A deployment that puts
+ * the API on its own hostname keeps exactly the URL it configured.
+ *
+ * `SESSION_DOMAIN=.localhost` is the tempting alternative and does not work:
+ * browsers treat `localhost` as a public suffix and reject domain cookies on
+ * it, and `demo.localhost` and `localhost` are different *sites*, so the
+ * SameSite=Lax session cookie would not be sent cross-site anyway.
+ */
+function browserApiUrl(): string {
+  if (typeof window === "undefined") {
+    return env.apiUrl;
+  }
+
+  const url = new URL(env.apiUrl);
+
+  if (!isLoopbackHost(url.hostname)) {
+    return env.apiUrl;
+  }
+
+  url.protocol = window.location.protocol;
+  url.hostname = window.location.hostname;
+
+  return `${url.origin}${url.pathname.replace(/\/$/, "")}`;
+}
+
+function apiOrigin(): string {
+  return new URL(browserApiUrl()).origin;
+}
 
 /**
  * Is this a Super Admin Portal call?
@@ -148,7 +192,7 @@ export async function ensureCsrfCookie(central = false): Promise<void> {
   // CSRF cookie in central context while every later call runs in tenant
   // context means two different session cookies and a permanent 419 loop —
   // and the mirror image of that for the portal, hence `central`.
-  await fetch(`${apiOrigin}/sanctum/csrf-cookie`, {
+  await fetch(`${apiOrigin()}/sanctum/csrf-cookie`, {
     credentials: "include",
     headers: {
       Accept: "application/json",
@@ -173,7 +217,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetch(`${env.apiUrl}${path}`, {
+    response = await fetch(`${browserApiUrl()}${path}`, {
       ...init,
       headers: {
         Accept: "application/json",

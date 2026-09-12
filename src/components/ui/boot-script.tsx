@@ -19,18 +19,29 @@ export const ANNOUNCEMENT_DISMISSED_KEY = "announcement-dismissed";
 /** Set on <html> when the shopper has closed the announcement bar. */
 export const ANNOUNCEMENT_HIDDEN_CLASS = "announcement-dismissed";
 
-export type ThemePreference = "light" | "dark" | "system";
+/**
+ * Light unless the shopper explicitly asked for dark.
+ *
+ * There is deliberately no "system" any more. Following `prefers-color-scheme`
+ * means the visitor's laptop decides what the merchant's shop looks like, and
+ * for a store that is the wrong input: catalogue photography is shot against
+ * light grounds, surrounding chrome shifts how a product's colour is judged,
+ * and two shoppers seeing materially different stores is a branding defect —
+ * one that gets worse when tenants pick their own brand colour, since they
+ * will pick it against a light page.
+ *
+ * Dark stays available for anyone who wants it; it is just never chosen on
+ * someone's behalf.
+ */
+export type ThemePreference = "light" | "dark";
 
 const script = `
 (function () {
   var root = document.documentElement;
 
   try {
-    var stored = localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
     var dark =
-      stored === "dark" ||
-      ((!stored || stored === "system") &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
+      localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)}) === "dark";
 
     root.classList.toggle("dark", dark);
     root.style.colorScheme = dark ? "dark" : "light";

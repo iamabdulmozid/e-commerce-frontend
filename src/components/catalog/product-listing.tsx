@@ -44,7 +44,7 @@ export function ProductListing({
   return (
     <div className="grid gap-10 lg:grid-cols-[16rem_1fr]">
       <aside className="hidden lg:block" aria-label="Filters">
-        <div className="sticky top-28">
+        <div className="sticky top-32">
           <CatalogFilters
             categories={categories}
             brands={brands}

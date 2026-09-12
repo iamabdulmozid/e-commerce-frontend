@@ -30,6 +30,19 @@ interface StoreImageProps {
   src?: string | null;
   alt: string;
   ratio?: keyof typeof RATIOS;
+  /**
+   * How the image fills its box.
+   *
+   * `cover` fills and crops — right for a banner or a hero, where the frame is
+   * the point and the edges are expendable.
+   *
+   * `contain` fits the whole image inside, letterboxing against the well —
+   * the only safe choice for product photography, because catalogue images
+   * arrive at whatever ratio the retailer shot them at. A 3:4 portrait of a
+   * model in a square `cover` box loses the top and bottom, which is how a
+   * clothing shot ends up beheaded.
+   */
+  fit?: "cover" | "contain";
   /** Above-the-fold images should not be lazy - it delays the LCP. */
   priority?: boolean;
   className?: string;
@@ -43,6 +56,7 @@ export function StoreImage({
   src,
   alt,
   ratio = "square",
+  fit = "cover",
   priority = false,
   className,
   imageClassName,
@@ -70,7 +84,11 @@ export function StoreImage({
           decoding={priority ? "sync" : "async"}
           fetchPriority={priority ? "high" : undefined}
           onError={() => setFailed(true)}
-          className={cn("absolute inset-0 size-full object-cover", imageClassName)}
+          className={cn(
+            "absolute inset-0 size-full",
+            fit === "contain" ? "object-contain" : "object-cover",
+            imageClassName,
+          )}
         />
       ) : (
         <Placeholder label={fallbackLabel ?? alt} />

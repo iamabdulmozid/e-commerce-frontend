@@ -1,5 +1,5 @@
 import { Tag } from "lucide-react";
-import Link from "next/link";
+import { BrandTile } from "@/components/catalog/brand-tile";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Container } from "@/components/ui/container";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -33,28 +33,7 @@ export default async function BrandsPage() {
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((brand) => (
             <li key={brand.id}>
-              <Link
-                href={`/brands/${brand.slug}`}
-                className="border-border hover:border-primary/40 hover:shadow-card group flex h-36 flex-col items-center justify-center gap-3 rounded-xl border p-5 text-center transition-all"
-              >
-                {brand.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={brand.logo.thumb_url}
-                    alt=""
-                    loading="lazy"
-                    className="h-12 w-auto max-w-full object-contain"
-                  />
-                ) : (
-                  <span className="bg-primary-soft text-primary-soft-foreground font-display flex size-12 items-center justify-center rounded-full text-lg font-bold">
-                    {brand.name.slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-
-                <span className="group-hover:text-primary text-sm font-medium transition-colors">
-                  {brand.name}
-                </span>
-              </Link>
+              <BrandTile brand={brand} className="h-32" />
             </li>
           ))}
         </ul>

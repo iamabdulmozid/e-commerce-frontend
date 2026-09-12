@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import type { Paginated } from "@/types/auth";
+import type { StockStatus } from "@/services/inventory";
 
 /*
  * Catalog client, shared by the storefront and the admin dashboard.
@@ -127,6 +128,8 @@ export interface Variant {
   price: string;
   compare_price?: string | null;
   pricing?: Pricing;
+  /** Three-state signal. The public API never sends a quantity. */
+  stock?: { status: StockStatus };
   /** Admin only; absent from every public response. */
   cost?: string | null;
   weight?: string | null;
@@ -183,6 +186,25 @@ export interface ProductImage {
   alt: string;
 }
 
+/**
+ * A card's price, already reduced server-side.
+ *
+ * `base_*` is what the same shopper would otherwise pay today, so the
+ * struck-through figure on a card is the honest comparison rather than the
+ * merchant's compare-at claim — the same rule the detail page follows.
+ *
+ * `discount_percent` is rounded down and is the biggest saving on any single
+ * variant, never the cheapest variant measured against the dearest one.
+ */
+export interface PriceRange {
+  min: string;
+  max: string;
+  base_min: string;
+  base_max: string;
+  is_discounted: boolean;
+  discount_percent: number | null;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -197,13 +219,39 @@ export interface Product {
   is_bestseller: boolean;
   brand?: { id: number; name: string; slug: string } | null;
   primary_image?: { url: string; thumb_url: string; alt: string } | null;
-  price_range?: { min: string; max: string } | null;
+  price_range?: PriceRange | null;
+  /** ISO-8601. Set only when a time-boxed rule is what makes this cheap. */
+  sale_ends_at?: string | null;
+  /**
+   * A signal, never a count (Phase 7 rule 19). `any_variant_available` gates
+   * the buy button; `status` drives the badge, and reports the BEST of the
+   * variants so a product with one scarce colour is not labelled low stock.
+   */
+  stock?: { status: StockStatus; any_variant_available: boolean };
   categories?: Array<{ id: number; name: string; slug: string }>;
   variants?: Variant[];
   images?: ProductImage[];
   seo_title?: string | null;
   seo_description?: string | null;
   created_at: string | null;
+}
+
+/**
+ * The flash sale: what is discounted with a deadline, and when the first of
+ * those deadlines passes.
+ *
+ * `ends_at` null means there is no flash sale running. It is the server's
+ * answer, not an absence of data — the storefront renders nothing rather than
+ * counting down to something it made up.
+ *
+ * The deadline is deliberately not derived from `items`: the soonest-ending
+ * offer in the store need not be among the handful the rail shows.
+ */
+export interface FlashSale {
+  ends_at: string | null;
+  items: Product[];
+  /** Across the whole sale, not just the products returned here. */
+  total: number;
 }
 
 export interface ProductFilters {
@@ -213,6 +261,7 @@ export interface ProductFilters {
   max_price?: string;
   featured?: boolean;
   new?: boolean;
+  flash_sale?: boolean;
   q?: string;
   status?: string;
   sort?: string;
@@ -284,6 +333,7 @@ export const catalogService = {
   products: (filters: ProductFilters = {}) =>
     api.get<Paginated<Product>>(`/products?${query(filters)}`),
   product: (slug: string) => api.get<Product>(`/products/${slug}`),
+  flashSale: () => api.get<FlashSale>("/flash-sale"),
   categoryTree: () => api.get<{ items: CategoryNode[] }>("/categories"),
   category: (slug: string) => api.get<Category>(`/categories/${slug}`),
   brands: () => api.get<{ items: Brand[] }>("/brands"),
@@ -319,7 +369,8 @@ export const catalogService = {
 
     brands: (params: { q?: string; per_page?: number } = {}) =>
       api.get<Paginated<Brand>>(`/admin/brands?${query(params)}`),
-    createBrand: (payload: BrandPayload) => api.post<Brand>("/admin/brands", payload),
+    createBrand: (payload: BrandPayload) =>
+      api.post<Brand>("/admin/brands", payload),
     updateBrand: (id: number, payload: BrandPayload) =>
       api.patch<Brand>(`/admin/brands/${id}`, payload),
     deleteBrand: (id: number) => api.delete<null>(`/admin/brands/${id}`),
@@ -332,21 +383,39 @@ export const catalogService = {
       id
         ? api.patch<Attribute>(`/admin/attributes/${id}`, payload)
         : api.post<Attribute>("/admin/attributes", payload),
-    deleteAttribute: (id: number) => api.delete<null>(`/admin/attributes/${id}`),
+    deleteAttribute: (id: number) =>
+      api.delete<null>(`/admin/attributes/${id}`),
 
-    priceRules: (params: { variant_id?: number; customer_group_id?: number; status?: string; per_page?: number } = {}) =>
-      api.get<Paginated<PriceRule>>(`/admin/price-rules?${query(params)}`),
+    priceRules: (
+      params: {
+        variant_id?: number;
+        customer_group_id?: number;
+        status?: string;
+        per_page?: number;
+      } = {},
+    ) => api.get<Paginated<PriceRule>>(`/admin/price-rules?${query(params)}`),
     productPriceRules: (productId: number) =>
-      api.get<{ items: PriceRule[] }>(`/admin/products/${productId}/price-rules`),
+      api.get<{ items: PriceRule[] }>(
+        `/admin/products/${productId}/price-rules`,
+      ),
     savePriceRule: (payload: PriceRulePayload, id?: number) =>
       id
         ? api.patch<PriceRule>(`/admin/price-rules/${id}`, payload)
         : api.post<PriceRule>("/admin/price-rules", payload),
-    deletePriceRule: (id: number) => api.delete<null>(`/admin/price-rules/${id}`),
+    deletePriceRule: (id: number) =>
+      api.delete<null>(`/admin/price-rules/${id}`),
     previewPrices: (
       productId: number,
-      payload: { customer_group_id?: number | null; quantity?: number; at?: string },
-    ) => api.post<{ variants: PricePreviewRow[] }>(`/admin/products/${productId}/price-preview`, payload),
+      payload: {
+        customer_group_id?: number | null;
+        quantity?: number;
+        at?: string;
+      },
+    ) =>
+      api.post<{ variants: PricePreviewRow[] }>(
+        `/admin/products/${productId}/price-preview`,
+        payload,
+      ),
 
     products: (filters: ProductFilters = {}) =>
       api.get<Paginated<Product>>(`/admin/products?${query(filters)}`),
@@ -359,14 +428,29 @@ export const catalogService = {
 
     addVariant: (productId: number, payload: Record<string, unknown>) =>
       api.post<Product>(`/admin/products/${productId}/variants`, payload),
-    updateVariant: (productId: number, variantId: number, payload: Record<string, unknown>) =>
-      api.patch<Product>(`/admin/products/${productId}/variants/${variantId}`, payload),
+    updateVariant: (
+      productId: number,
+      variantId: number,
+      payload: Record<string, unknown>,
+    ) =>
+      api.patch<Product>(
+        `/admin/products/${productId}/variants/${variantId}`,
+        payload,
+      ),
     deleteVariant: (productId: number, variantId: number) =>
       api.delete<null>(`/admin/products/${productId}/variants/${variantId}`),
     generateVariants: (
       productId: number,
-      payload: { attributes: Record<number, number[]>; sku_prefix: string; price: string },
-    ) => api.post<Product>(`/admin/products/${productId}/variants/generate`, payload),
+      payload: {
+        attributes: Record<number, number[]>;
+        sku_prefix: string;
+        price: string;
+      },
+    ) =>
+      api.post<Product>(
+        `/admin/products/${productId}/variants/generate`,
+        payload,
+      ),
 
     syncImages: (
       productId: number,

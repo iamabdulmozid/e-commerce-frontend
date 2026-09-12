@@ -61,10 +61,19 @@ function resolveTarget(host: string, tenant: string | null, path: string) {
   const apiUrl = new URL(env.apiUrl);
 
   // Dev: the API lives on a different port, so the tenant travels as a header.
+  //
+  // The HOST wins whenever it names a store. NEXT_PUBLIC_DEV_TENANT is a
+  // stand-in for a subdomain that a bare `localhost` cannot express — so when
+  // the shopper is already on `demo.localhost:3000`, the variable has nothing
+  // left to stand in for and deferring to it would render one store's
+  // catalogue inside another store's address. The browser resolves the tenant
+  // from the host it is on, and this is what keeps the two halves agreeing.
   if (env.devTenant) {
     return {
       url: `${env.apiUrl}${path}`,
-      tenantHeader: { "X-Tenant": env.devTenant } as Record<string, string>,
+      tenantHeader: {
+        "X-Tenant": tenant ?? env.devTenant,
+      } as Record<string, string>,
     };
   }
 

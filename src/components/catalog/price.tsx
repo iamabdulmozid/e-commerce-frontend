@@ -1,5 +1,9 @@
 import { cn } from "@/lib/utils";
-import type { Pricing, PriceTier } from "@/services/catalog";
+import type {
+  Pricing,
+  PriceRange as PriceRangeShape,
+  PriceTier,
+} from "@/services/catalog";
 
 /*
  * One price component, used by the card and the detail page.
@@ -45,7 +49,9 @@ export function Price({
   } as const;
 
   return (
-    <span className={cn("flex flex-wrap items-baseline gap-x-3 gap-y-1", className)}>
+    <span
+      className={cn("flex flex-wrap items-baseline gap-x-3 gap-y-1", className)}
+    >
       <span className={cn("font-semibold tabular-nums", sizes[size])}>
         {formatMoney(effective)}
       </span>
@@ -66,12 +72,19 @@ export function Price({
   );
 }
 
-/** "From X" through "to Y" for a card, already resolved server-side. */
+/**
+ * "From X" through "to Y" for a card, already resolved server-side.
+ *
+ * The struck-through figure is `base_min` against `min` — the same variant's
+ * before and after, which is why the API sends both ends of both ranges rather
+ * than leaving a card to pair the cheapest sale price with the dearest list
+ * price and overstate the saving.
+ */
 export function PriceRange({
   range,
   className,
 }: {
-  range: { min: string; max: string } | null | undefined;
+  range: PriceRangeShape | null | undefined;
   className?: string;
 }) {
   if (!range) return <span className="text-muted-foreground text-sm">—</span>;
@@ -79,15 +92,26 @@ export function PriceRange({
   return (
     <span
       className={cn(
-        "block text-sm font-semibold tabular-nums",
+        "flex flex-wrap items-baseline gap-x-2 text-sm font-semibold tabular-nums",
         className,
       )}
     >
-      {range.min === range.max
-        ? formatMoney(range.min)
-        : `${formatMoney(range.min)} – ${formatMoney(range.max).replace(`${CURRENCY} `, "")}`}
+      <span>{span(range.min, range.max)}</span>
+
+      {range.is_discounted && (
+        <span className="text-muted-foreground text-xs font-normal line-through">
+          {span(range.base_min, range.base_max)}
+        </span>
+      )}
     </span>
   );
+}
+
+/** One figure when both ends agree, a range when they do not. */
+function span(min: string, max: string): string {
+  return min === max
+    ? formatMoney(min)
+    : `${formatMoney(min)} – ${formatMoney(max).replace(`${CURRENCY} `, "")}`;
 }
 
 /**

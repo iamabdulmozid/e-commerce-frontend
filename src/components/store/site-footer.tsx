@@ -1,5 +1,5 @@
-import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
+import { StoreLogo } from "@/components/store/store-logo";
 import type { CategoryNode } from "@/services/catalog";
 
 /**
@@ -29,9 +29,7 @@ export function SiteFooter({
       <div className="container-page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div className="sm:col-span-2 lg:col-span-1">
           <Link href="/" className="flex items-center gap-2">
-            <span className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-xl">
-              <ShoppingBag className="size-5" aria-hidden />
-            </span>
+            <StoreLogo />
             <span className="font-display text-lg font-bold tracking-tight">
               {storeName}
             </span>

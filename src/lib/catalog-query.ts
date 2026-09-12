@@ -22,6 +22,7 @@ export const LISTING_PARAMS = [
   "featured",
   "new",
   "bestseller",
+  "flash_sale",
 ] as const;
 
 export type ListingParam = (typeof LISTING_PARAMS)[number];
@@ -116,6 +117,7 @@ const FILTERS: ListingParam[] = [
   "featured",
   "new",
   "bestseller",
+  "flash_sale",
 ];
 
 /**
