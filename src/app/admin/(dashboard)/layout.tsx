@@ -12,17 +12,40 @@ import { can } from "@/types/auth";
 const NAV = [
   { href: "/admin", label: "Dashboard", permission: null },
   { href: "/admin/products", label: "Products", permission: "product.view" },
-  { href: "/admin/categories", label: "Categories", permission: "category.view" },
+  {
+    href: "/admin/categories",
+    label: "Categories",
+    permission: "category.view",
+  },
   { href: "/admin/brands", label: "Brands", permission: "brand.view" },
-  { href: "/admin/attributes", label: "Attributes", permission: "product.view" },
-  { href: "/admin/price-rules", label: "Price rules", permission: "price.view" },
-  { href: "/admin/inventory", label: "Inventory", permission: "inventory.view" },
+  {
+    href: "/admin/attributes",
+    label: "Attributes",
+    permission: "product.view",
+  },
+  {
+    href: "/admin/price-rules",
+    label: "Price rules",
+    permission: "price.view",
+  },
+  {
+    href: "/admin/inventory",
+    label: "Inventory",
+    permission: "inventory.view",
+  },
+  { href: "/admin/orders", label: "Orders", permission: "order.view" },
+  { href: "/admin/payments", label: "Payments", permission: "payment.view" },
   { href: "/admin/media", label: "Media", permission: "media.upload" },
   { href: "/admin/customers", label: "Customers", permission: "customer.view" },
   { href: "/admin/users", label: "Users", permission: "user.manage" },
   { href: "/admin/roles", label: "Roles", permission: "role.manage" },
   { href: "/admin/audit-logs", label: "Audit log", permission: "audit.view" },
   { href: "/admin/billing", label: "Billing", permission: "billing.view" },
+  {
+    href: "/admin/settings/payment-gateways",
+    label: "Payment methods",
+    permission: "setting.manage",
+  },
 ];
 
 export default function AdminDashboardLayout({

@@ -127,18 +127,22 @@ export function CartView() {
         )}
 
         {/*
-          Checkout is Phase 9 and does not exist yet, so this button is
-          disabled rather than wired to nothing. An enabled control that posts
-          nowhere is the fabricated affordance 5B/D4 already ruled out for the
-          newsletter block, and the reasoning is the same here.
-
-          `checkout_ready` still drives the message beneath it, because that
-          field is real today and the cart's job is to be honest about whether
-          it COULD be checked out.
+          Live from Phase 9. `checkout_ready` is computed server-side and is the
+          single field checkout itself gates on, so a bag the button lets
+          through is a bag the API will accept.
         */}
-        <Button size="lg" className="w-full" disabled>
-          Checkout
-        </Button>
+        {cart.checkout_ready ? (
+          <ButtonLink href="/checkout" size="lg" className="w-full">
+            Checkout
+          </ButtonLink>
+        ) : (
+          // A real <button disabled>, not a link with aria-disabled: an
+          // aria-disabled anchor still navigates on click and on Enter, so it
+          // would take a shopper to a checkout that refuses them.
+          <Button size="lg" className="w-full" disabled>
+            Checkout
+          </Button>
+        )}
 
         {/* The reason sits under the button, not in a tooltip: a disabled
             control with no visible explanation is a dead end. */}
@@ -149,7 +153,7 @@ export function CartView() {
               : shortStock
                 ? "Adjust the quantities above to continue."
                 : "Resolve the problems above to continue."
-            : "Your bag is ready. Checkout opens in the next phase."}
+            : "You will pay cash on delivery."}
         </p>
       </Card>
     </div>
